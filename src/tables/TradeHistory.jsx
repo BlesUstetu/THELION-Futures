@@ -1,36 +1,39 @@
+import { useContext } from "react"
+import { TradingContext } from "../store/tradingStore"
+
 export default function TradeHistory(){
+
+const { tradeHistory } = useContext(TradingContext)
 
 return(
 
 <table>
 
 <thead>
-
 <tr>
-
 <th>Pair</th>
 <th>Side</th>
 <th>Price</th>
-<th>Size</th>
-<th>Fee</th>
+<th>Amount</th>
 <th>Time</th>
-
 </tr>
-
 </thead>
 
 <tbody>
 
-<tr>
+{tradeHistory.map(t=>(
 
-<td>BTCUSDT</td>
-<td>LONG</td>
-<td>64020</td>
-<td>0.1</td>
-<td>0.02</td>
-<td>12:10</td>
+<tr key={t.id}>
+
+<td>{t.pair}</td>
+<td>{t.side}</td>
+<td>{t.price}</td>
+<td>{t.amount}</td>
+<td>{t.time}</td>
 
 </tr>
+
+))}
 
 </tbody>
 
