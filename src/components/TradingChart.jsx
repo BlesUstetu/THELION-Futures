@@ -5,7 +5,14 @@ export default function TradingChart({ pair }){
 
 const chartRef = useRef(null)
 
-const { orderLines } = useContext(TradingContext)
+const {
+orderLines,
+tpLines,
+slLines,
+liquidationLines,
+livePrice,
+setOrderLines
+} = useContext(TradingContext)
 
 useEffect(()=>{
 
@@ -30,23 +37,23 @@ autosize:true,
 
 toolbar_bg:"#0b0e11",
 
-enable_publishing:false,
-
-hide_top_toolbar:false
+enable_publishing:false
 
 })
-
-/* draw order lines */
 
 setTimeout(()=>{
 
 if(!widget.chart) return
 
-try{
+const chart = widget.chart()
+
+/* =========================
+ORDER LINES
+========================= */
 
 orderLines.forEach(line=>{
 
-widget.chart().createShape(
+const shape = chart.createShape(
 
 { price: line.price },
 
@@ -54,23 +61,111 @@ widget.chart().createShape(
 shape:"horizontal_line",
 text:line.side,
 color: line.side==="BUY" ? "green" : "red",
-disableSelection:true,
-disableSave:true
+lock:false
+}
+
+)
+
+/* cancel order when clicked */
+
+shape.on("click",()=>{
+
+setOrderLines(prev=>prev.filter(l=>l.price!==line.price))
+
+})
+
+})
+
+/* =========================
+TP LINES
+========================= */
+
+tpLines.forEach(line=>{
+
+chart.createShape(
+
+{ price: line.price },
+
+{
+shape:"horizontal_line",
+text:"TP",
+color:"blue"
 }
 
 )
 
 })
 
-}catch(e){
+/* =========================
+SL LINES
+========================= */
 
-console.log("chart not ready")
+slLines.forEach(line=>{
+
+chart.createShape(
+
+{ price: line.price },
+
+{
+shape:"horizontal_line",
+text:"SL",
+color:"orange"
+}
+
+)
+
+})
+
+/* =========================
+LIQUIDATION
+========================= */
+
+liquidationLines.forEach(line=>{
+
+chart.createShape(
+
+{ price: line.price },
+
+{
+shape:"horizontal_line",
+text:"LIQ",
+color:"purple"
+}
+
+)
+
+})
+
+/* =========================
+LIVE PRICE
+========================= */
+
+if(livePrice){
+
+chart.createShape(
+
+{ price: livePrice },
+
+{
+shape:"horizontal_line",
+text:"LIVE",
+color:"yellow"
+}
+
+)
 
 }
 
 },2000)
 
-},[pair,orderLines])
+},[
+pair,
+orderLines,
+tpLines,
+slLines,
+liquidationLines,
+livePrice
+])
 
 return(
 
