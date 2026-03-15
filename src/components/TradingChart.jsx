@@ -6,12 +6,12 @@ export default function TradingChart({ pair }) {
 
   useEffect(() => {
 
-    if (typeof window === "undefined") return
+    if (!chartRef.current) return
     if (!window.TradingView) return
 
-    new window.TradingView.widget({
+    const widget = new window.TradingView.widget({
 
-      container_id: chartRef.current,
+      container_id: chartRef.current.id,
 
       symbol: "BINANCE:" + pair,
 
@@ -30,9 +30,16 @@ export default function TradingChart({ pair }) {
   }, [pair])
 
   return (
+
     <div
+      id="tradingview_chart"
       ref={chartRef}
-      style={{ width: "100%", height: "100%" }}
+      style={{
+        width:"100%",
+        height:"100%"
+      }}
     />
+
   )
+
 }
