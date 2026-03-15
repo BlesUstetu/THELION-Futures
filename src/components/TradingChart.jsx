@@ -1,32 +1,24 @@
 import { useEffect, useRef, useContext } from "react"
 import { TradingContext } from "../store/tradingStore.jsx"
 
-export default function TradingChart({ pair }) {
+export default function TradingChart({ pair }){
 
-const containerRef = useRef(null)
-const widgetRef = useRef(null)
+const chartRef = useRef(null)
 
-const {
-orderLines,
-tpLines,
-slLines,
-liquidationLines,
-livePrice
-} = useContext(TradingContext)
-
-/* create widget */
+const { orderLines } = useContext(TradingContext)
 
 useEffect(()=>{
 
+if(typeof window === "undefined") return
 if(!window.TradingView) return
 
-widgetRef.current = new window.TradingView.widget({
+const widget = new window.TradingView.widget({
+
+container_id:"tradingview_chart",
 
 symbol:"BINANCE:"+pair,
 
 interval:"15",
-
-container_id:"tradingview_chart",
 
 theme:"dark",
 
@@ -38,113 +30,53 @@ autosize:true,
 
 toolbar_bg:"#0b0e11",
 
-enable_publishing:false
+enable_publishing:false,
+
+hide_top_toolbar:false
 
 })
 
-},[pair])
+/* draw order lines */
 
-/* draw lines */
+setTimeout(()=>{
 
-useEffect(()=>{
+if(!widget.chart) return
 
-if(!widgetRef.current) return
-
-widgetRef.current.onChartReady(()=>{
-
-const chart = widgetRef.current.chart()
-
-/* order lines */
+try{
 
 orderLines.forEach(line=>{
 
-chart.createShape(
+widget.chart().createShape(
+
 { price: line.price },
+
 {
 shape:"horizontal_line",
 text:line.side,
-color: line.side==="BUY" ? "green":"red",
-lock:false
+color: line.side==="BUY" ? "green" : "red",
+disableSelection:true,
+disableSave:true
 }
+
 )
 
 })
 
-/* TP */
+}catch(e){
 
-tpLines.forEach(line=>{
-
-chart.createShape(
-{ price: line.price },
-{
-shape:"horizontal_line",
-text:"TP",
-color:"blue"
-}
-)
-
-})
-
-/* SL */
-
-slLines.forEach(line=>{
-
-chart.createShape(
-{ price: line.price },
-{
-shape:"horizontal_line",
-text:"SL",
-color:"orange"
-}
-)
-
-})
-
-/* liquidation */
-
-liquidationLines.forEach(line=>{
-
-chart.createShape(
-{ price: line.price },
-{
-shape:"horizontal_line",
-text:"LIQ",
-color:"purple"
-}
-)
-
-})
-
-/* live price */
-
-if(livePrice){
-
-chart.createShape(
-{ price: livePrice },
-{
-shape:"horizontal_line",
-text:"LIVE",
-color:"yellow"
-}
-)
+console.log("chart not ready")
 
 }
 
-})
+},2000)
 
-},[
-orderLines,
-tpLines,
-slLines,
-liquidationLines,
-livePrice
-])
+},[pair,orderLines])
 
 return(
 
 <div
 id="tradingview_chart"
-ref={containerRef}
+ref={chartRef}
 style={{width:"100%",height:"100%"}}
 />
 
