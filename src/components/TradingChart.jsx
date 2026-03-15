@@ -1,45 +1,85 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useContext } from "react"
+import { TradingContext } from "../store/tradingStore.jsx"
 
-export default function TradingChart({ pair }) {
+export default function TradingChart({ pair }){
 
-  const chartRef = useRef(null)
+const chartRef = useRef(null)
 
-  useEffect(() => {
+const { orderLines } = useContext(TradingContext)
 
-    if (!chartRef.current) return
-    if (!window.TradingView) return
+useEffect(()=>{
 
-    const widget = new window.TradingView.widget({
+if(typeof window === "undefined") return
+if(!window.TradingView) return
 
-      container_id: chartRef.current.id,
+const widget = new window.TradingView.widget({
 
-      symbol: "BINANCE:" + pair,
+container_id:"tradingview_chart",
 
-      interval: "15",
+symbol:"BINANCE:"+pair,
 
-      theme: "dark",
+interval:"15",
 
-      style: "1",
+theme:"dark",
 
-      locale: "en",
+style:"1",
 
-      autosize: true
+locale:"en",
 
-    })
+autosize:true,
 
-  }, [pair])
+toolbar_bg:"#0b0e11",
 
-  return (
+enable_publishing:false,
 
-    <div
-      id="tradingview_chart"
-      ref={chartRef}
-      style={{
-        width:"100%",
-        height:"100%"
-      }}
-    />
+hide_top_toolbar:false
 
-  )
+})
+
+/* draw order lines */
+
+setTimeout(()=>{
+
+if(!widget.chart) return
+
+try{
+
+orderLines.forEach(line=>{
+
+widget.chart().createShape(
+
+{ price: line.price },
+
+{
+shape:"horizontal_line",
+text:line.side,
+color: line.side==="BUY" ? "green" : "red",
+disableSelection:true,
+disableSave:true
+}
+
+)
+
+})
+
+}catch(e){
+
+console.log("chart not ready")
+
+}
+
+},2000)
+
+},[pair,orderLines])
+
+return(
+
+<div
+id="tradingview_chart"
+ref={chartRef}
+style={{width:"100%",height:"100%"}}
+/>
+
+)
 
 }
