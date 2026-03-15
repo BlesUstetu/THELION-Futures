@@ -215,37 +215,69 @@ border-top:1px solid #1f2937;
 
 }
 
-/* =================================
+/* =========================
 TAB BUTTONS
-================================= */
+========================= */
 
 .tab-buttons{
 
 display:flex;
+gap:4px;
+padding:6px;
 
-gap:8px;
+background:#1f2937;   /* abu gelap */
 
-padding:8px;
-
-background:#0b0e11;
+overflow-x:auto;
 
 }
+
+/* tombol tab */
 
 .tab-buttons button{
 
-flex:1;
+font-size:9px;          /* lebih kecil */
+padding:4px 6px;
 
-background:#1f2937;
+background:#374151;     /* abu */
+color:#e5e7eb;
 
-color:#d1d5db;
+border:none;
+border-radius:3px;
 
-font-size:12px;
+white-space:nowrap;
+
+cursor:pointer;
 
 }
 
+/* hover */
+
 .tab-buttons button:hover{
 
-background:#374151;
+background:#4b5563;
+
+}
+
+/* tab aktif */
+
+.tab-buttons button.active{
+
+background:#6b7280;
+
+color:white;
+
+}
+
+/* mobile */
+
+@media (max-width:768px){
+
+.tab-buttons button{
+
+font-size:8px;
+padding:4px 5px;
+
+}
 
 }
 
