@@ -4,67 +4,64 @@ export const TradingContext = createContext()
 
 export function TradingProvider({ children }) {
 
-  const [positions, setPositions] = useState([])
-  const [openOrders, setOpenOrders] = useState([])
-  const [orderHistory, setOrderHistory] = useState([])
-  const [tradeHistory, setTradeHistory] = useState([])
+  const [positions,setPositions] = useState([])
+  const [openOrders,setOpenOrders] = useState([])
+  const [orderHistory,setOrderHistory] = useState([])
+  const [tradeHistory,setTradeHistory] = useState([])
 
-  // =========================
-  // PLACE ORDER
-  // =========================
-  function placeOrder(order) {
+  function placeOrder(order){
 
     const newOrder = {
-      id: Date.now(),
+      id:Date.now(),
+      pair:order.pair,
+      side:order.side,
+      price:Number(order.price),
+      amount:Number(order.amount),
+      leverage:Number(order.leverage || 1),
+      status:"OPEN",
+      time:new Date().toLocaleTimeString()
+    }
+
+    setOpenOrders(prev=>[...prev,newOrder])
+    setOrderHistory(prev=>[...prev,newOrder])
+  }
+
+  function fillOrder(orderId){
+
+    const order=openOrders.find(o=>o.id===orderId)
+
+    if(!order) return
+
+    const position={
       ...order,
-      status: "OPEN",
-      time: new Date().toLocaleTimeString()
+      entry:order.price,
+      pnl:0
     }
 
-    setOpenOrders(prev => [...prev, newOrder])
-    setOrderHistory(prev => [...prev, newOrder])
+    setPositions(prev=>[...prev,position])
+    setOpenOrders(prev=>prev.filter(o=>o.id!==orderId))
+    setTradeHistory(prev=>[...prev,order])
   }
 
-  // =========================
-  // FILL ORDER
-  // =========================
-  function fillOrder(orderId) {
+  function closePosition(positionId){
 
-    const order = openOrders.find(o => o.id === orderId)
-    if (!order) return
+    const pos=positions.find(p=>p.id===positionId)
 
-    const filledOrder = {
-      ...order,
-      status: "FILLED"
+    if(!pos) return
+
+    setPositions(prev=>prev.filter(p=>p.id!==positionId))
+
+    const closedTrade={
+      ...pos,
+      closeTime:new Date().toLocaleTimeString(),
+      status:"CLOSED"
     }
 
-    setOpenOrders(prev => prev.filter(o => o.id !== orderId))
-    setPositions(prev => [...prev, filledOrder])
-    setTradeHistory(prev => [...prev, filledOrder])
-
+    setTradeHistory(prev=>[...prev,closedTrade])
   }
 
-  // =========================
-  // CLOSE POSITION
-  // =========================
-  function closePosition(positionId) {
+  return(
 
-    const position = positions.find(p => p.id === positionId)
-    if (!position) return
-
-    setPositions(prev => prev.filter(p => p.id !== positionId))
-
-    const closedTrade = {
-      ...position,
-      status: "CLOSED",
-      closeTime: new Date().toLocaleTimeString()
-    }
-
-    setTradeHistory(prev => [...prev, closedTrade])
-
-  }
-
-  return (
     <TradingContext.Provider
       value={{
         positions,
@@ -76,8 +73,11 @@ export function TradingProvider({ children }) {
         closePosition
       }}
     >
+
       {children}
+
     </TradingContext.Provider>
+
   )
 
 }
