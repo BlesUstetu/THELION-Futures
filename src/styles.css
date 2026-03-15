@@ -1,7 +1,8 @@
-/* =========================
-THELION EXCHANGE TERMINAL
-Complete Trading UI Style
-========================= */
+/* =================================
+THELION EXCHANGE TERMINAL UI
+Full Trading Layout
+Desktop + Mobile Responsive
+================================= */
 
 *{
 margin:0;
@@ -17,9 +18,9 @@ height:100vh;
 overflow:hidden;
 }
 
-/* =========================
-APP LAYOUT
-========================= */
+/* =================================
+APP CONTAINER
+================================= */
 
 .app{
 display:flex;
@@ -28,26 +29,21 @@ height:100vh;
 width:100%;
 }
 
-/* =========================
-TOP TERMINAL
-Chart + Order Panel
-========================= */
+/* =================================
+TOP TERMINAL (Chart + Order)
+================================= */
 
 .top{
 
 display:grid;
-
 grid-template-columns:2fr 1fr;
-
 height:70vh;
-
-background:#0b0e11;
 
 }
 
-/* =========================
+/* =================================
 CHART
-========================= */
+================================= */
 
 .chart{
 
@@ -63,19 +59,18 @@ border-right:1px solid #1f2937;
 
 }
 
-/* tradingview container */
+/* TradingView container */
 
 #tradingview_chart{
 
 width:100%;
-
 height:100%;
 
 }
 
-/* =========================
+/* =================================
 ORDER PANEL
-========================= */
+================================= */
 
 .order{
 
@@ -84,7 +79,6 @@ background:#111827;
 padding:15px;
 
 display:flex;
-
 flex-direction:column;
 
 }
@@ -92,9 +86,7 @@ flex-direction:column;
 .order-panel{
 
 display:flex;
-
 flex-direction:column;
-
 gap:10px;
 
 }
@@ -102,7 +94,6 @@ gap:10px;
 .order-panel h3{
 
 font-size:16px;
-
 margin-bottom:5px;
 
 }
@@ -145,10 +136,11 @@ transition:0.2s;
 
 }
 
+/* BUY */
+
 .buy{
 
 background:#16a34a;
-
 color:white;
 
 }
@@ -159,10 +151,11 @@ background:#15803d;
 
 }
 
+/* SELL */
+
 .sell{
 
 background:#dc2626;
-
 color:white;
 
 }
@@ -173,37 +166,34 @@ background:#b91c1c;
 
 }
 
-/* =========================
+/* =================================
 BOTTOM TERMINAL
-========================= */
+================================= */
 
 .bottom-tabs{
+
+display:flex;
+flex-direction:column;
 
 height:30vh;
 
 background:#0b0e11;
 
-display:flex;
-
-flex-direction:column;
+border-top:1px solid #1f2937;
 
 }
 
-/* =========================
+/* =================================
 TAB BUTTONS
-========================= */
+================================= */
 
 .tab-buttons{
 
 display:flex;
 
-gap:10px;
+gap:8px;
 
 padding:8px;
-
-border-top:1px solid #1f2937;
-
-border-bottom:1px solid #1f2937;
 
 background:#0b0e11;
 
@@ -217,6 +207,8 @@ background:#1f2937;
 
 color:#d1d5db;
 
+font-size:12px;
+
 }
 
 .tab-buttons button:hover{
@@ -225,9 +217,9 @@ background:#374151;
 
 }
 
-/* =========================
-TABLES
-========================= */
+/* =================================
+TABLE
+================================= */
 
 .table-container{
 
@@ -271,14 +263,13 @@ border-bottom:1px solid #1f2937;
 
 }
 
-/* =========================
+/* =================================
 SCROLLBAR
-========================= */
+================================= */
 
 ::-webkit-scrollbar{
 
 width:6px;
-
 height:6px;
 
 }
@@ -286,24 +277,60 @@ height:6px;
 ::-webkit-scrollbar-thumb{
 
 background:#374151;
-
 border-radius:10px;
 
 }
 
-/* =========================
-MOBILE
-========================= */
+/* =================================
+TABLE EMPTY STATE
+================================= */
 
-@media(max-width:900px){
+tbody tr{
+
+height:40px;
+
+}
+
+/* =================================
+MOBILE RESPONSIVE
+Order Panel Pindah ke Bawah Chart
+================================= */
+
+@media (max-width:900px){
 
 .top{
 
-grid-template-columns:1fr;
+display:flex;
+flex-direction:column;
 
-grid-template-rows:60% 40%;
+height:auto;
 
 }
+
+/* chart */
+
+.chart{
+
+width:100%;
+height:55vh;
+
+border-right:none;
+
+border-bottom:1px solid #1f2937;
+
+}
+
+/* order panel */
+
+.order{
+
+width:100%;
+
+padding:12px;
+
+}
+
+/* bottom terminal */
 
 .bottom-tabs{
 
@@ -311,25 +338,50 @@ height:40vh;
 
 }
 
-}
-
-/* =========================
-SMALL MOBILE
-========================= */
-
-@media(max-width:600px){
+/* input mobile */
 
 .order-panel input{
 
-font-size:12px;
+font-size:13px;
+padding:8px;
 
 }
 
 button{
 
-font-size:12px;
+font-size:13px;
 
-padding:8px;
+}
+
+}
+
+/* =================================
+SMALL MOBILE
+================================= */
+
+@media (max-width:600px){
+
+.chart{
+
+height:50vh;
+
+}
+
+.bottom-tabs{
+
+height:45vh;
+
+}
+
+.order-panel{
+
+gap:8px;
+
+}
+
+button{
+
+padding:9px;
 
 }
 
