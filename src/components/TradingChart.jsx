@@ -1,59 +1,46 @@
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 
 export default function TradingChart({pair}){
 
-useEffect(()=>{
+  const chartRef=useRef()
 
-function createChart(){
+  useEffect(()=>{
 
-new window.TradingView.widget({
+    if(!window.TradingView) return
 
-symbol: pair,
+    new window.TradingView.widget({
 
-interval:"15",
+      container_id:chartRef.current,
 
-theme:"dark",
+      symbol:"BINANCE:"+pair,
 
-style:"1",
+      interval:"15",
 
-locale:"en",
+      theme:"dark",
 
-toolbar_bg:"#111827",
+      style:"1",
 
-enable_publishing:false,
+      locale:"en",
 
-allow_symbol_change:true,
+      autosize:true,
 
-container_id:"tv_chart",
+      toolbar_bg:"#0f172a",
 
-autosize:true
+      enable_publishing:false,
 
-})
+      hide_top_toolbar:false
 
-}
+    })
 
-if(!window.TradingView){
+  },[pair])
 
-const script=document.createElement("script")
+  return(
 
-script.src="https://s3.tradingview.com/tv.js"
+    <div
+      ref={chartRef}
+      style={{height:"100%",width:"100%"}}
+    />
 
-script.onload=createChart
-
-document.body.appendChild(script)
-
-}else{
-
-createChart()
-
-}
-
-},[pair])
-
-return(
-
-<div id="tv_chart" style={{height:"100%",width:"100%"}}/>
-
-)
+  )
 
 }
