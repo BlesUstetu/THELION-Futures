@@ -426,3 +426,44 @@ padding:12px;
 }
 
 }
+
+/* =========================
+MOBILE TAB FIX
+========================= */
+
+@media (max-width:768px){
+
+.tab-buttons{
+
+gap:4px;
+padding:6px;
+overflow-x:auto;
+
+}
+
+/* tombol tab */
+
+.tab-buttons button{
+
+font-size:10px;
+padding:6px 4px;
+
+white-space:nowrap;
+
+}
+
+/* tabel */
+
+table{
+
+font-size:11px;
+
+}
+
+th, td{
+
+padding:6px;
+
+}
+
+}
