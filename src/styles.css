@@ -30,13 +30,15 @@ width:100%;
 }
 
 /* =================================
-TOP TERMINAL (Chart + Order)
+TOP TERMINAL
+Chart + Order Panel
 ================================= */
 
 .top{
 
 display:grid;
 grid-template-columns:2fr 1fr;
+
 height:70vh;
 
 }
@@ -59,7 +61,7 @@ border-right:1px solid #1f2937;
 
 }
 
-/* TradingView container */
+/* tradingview container */
 
 #tradingview_chart{
 
@@ -76,10 +78,12 @@ ORDER PANEL
 
 background:#111827;
 
-padding:15px;
+padding:16px;
 
 display:flex;
 flex-direction:column;
+
+width:100%;
 
 }
 
@@ -87,14 +91,18 @@ flex-direction:column;
 
 display:flex;
 flex-direction:column;
-gap:10px;
+
+gap:12px;
+
+width:100%;
 
 }
 
 .order-panel h3{
 
 font-size:16px;
-margin-bottom:5px;
+
+margin-bottom:4px;
 
 }
 
@@ -104,7 +112,7 @@ margin-bottom:5px;
 
 width:100%;
 
-padding:10px;
+padding:10px 12px;
 
 background:#1f2937;
 
@@ -116,21 +124,43 @@ color:white;
 
 font-size:14px;
 
+outline:none;
+
 }
 
-/* buttons */
+.order-panel input:focus{
 
-button{
+border-color:#2563eb;
 
-padding:10px;
+}
+
+/* =================================
+ORDER BUTTONS
+================================= */
+
+.order-buttons{
+
+display:grid;
+
+grid-template-columns:1fr 1fr;
+
+gap:8px;
+
+}
+
+.order-buttons button{
+
+width:100%;
+
+padding:12px;
 
 border:none;
 
-cursor:pointer;
-
-border-radius:3px;
-
 font-size:14px;
+
+border-radius:4px;
+
+cursor:pointer;
 
 transition:0.2s;
 
@@ -141,6 +171,7 @@ transition:0.2s;
 .buy{
 
 background:#16a34a;
+
 color:white;
 
 }
@@ -156,6 +187,7 @@ background:#15803d;
 .sell{
 
 background:#dc2626;
+
 color:white;
 
 }
@@ -264,6 +296,16 @@ border-bottom:1px solid #1f2937;
 }
 
 /* =================================
+EMPTY TABLE ROW HEIGHT
+================================= */
+
+tbody tr{
+
+height:40px;
+
+}
+
+/* =================================
 SCROLLBAR
 ================================= */
 
@@ -277,23 +319,14 @@ height:6px;
 ::-webkit-scrollbar-thumb{
 
 background:#374151;
+
 border-radius:10px;
 
 }
 
 /* =================================
-TABLE EMPTY STATE
-================================= */
-
-tbody tr{
-
-height:40px;
-
-}
-
-/* =================================
 MOBILE RESPONSIVE
-Order Panel Pindah ke Bawah Chart
+Order panel pindah ke bawah chart
 ================================= */
 
 @media (max-width:900px){
@@ -301,6 +334,7 @@ Order Panel Pindah ke Bawah Chart
 .top{
 
 display:flex;
+
 flex-direction:column;
 
 height:auto;
@@ -312,6 +346,7 @@ height:auto;
 .chart{
 
 width:100%;
+
 height:55vh;
 
 border-right:none;
@@ -330,7 +365,7 @@ padding:12px;
 
 }
 
-/* bottom terminal */
+/* bottom tables */
 
 .bottom-tabs{
 
@@ -338,18 +373,23 @@ height:40vh;
 
 }
 
-/* input mobile */
+/* inputs mobile */
 
 .order-panel input{
 
 font-size:13px;
+
 padding:8px;
 
 }
 
-button{
+/* buttons mobile */
 
-font-size:13px;
+.order-buttons button{
+
+padding:14px;
+
+font-size:15px;
 
 }
 
@@ -379,9 +419,9 @@ gap:8px;
 
 }
 
-button{
+.order-buttons button{
 
-padding:9px;
+padding:12px;
 
 }
 
