@@ -3,86 +3,71 @@ import { TradingContext } from "../store/tradingStore"
 
 export default function OrderPanel(){
 
-const { placeOrder } = useContext(TradingContext)
+  const {placeOrder}=useContext(TradingContext)
 
-const [price,setPrice]=useState("")
-const [amount,setAmount]=useState("")
-const [leverage,setLeverage]=useState(10)
+  const [price,setPrice]=useState("")
+  const [amount,setAmount]=useState("")
+  const [leverage,setLeverage]=useState(10)
 
-function submit(side){
+  function submit(side){
 
-const order={
+    if(!price||!amount) return
 
-id:Date.now(),
+    placeOrder({
 
-pair:"BTCUSDT",
+      pair:"BTCUSDT",
+      side:side,
+      price:price,
+      amount:amount,
+      leverage:leverage
 
-side:side,
+    })
 
-price:price,
+    setPrice("")
+    setAmount("")
 
-amount:amount,
+  }
 
-leverage:leverage,
+  return(
 
-status:"OPEN",
+    <div className="order-panel">
 
-time:new Date().toLocaleTimeString()
+      <h3>Order</h3>
 
-}
+      <input
+      placeholder="Price"
+      value={price}
+      onChange={e=>setPrice(e.target.value)}
+      />
 
-placeOrder(order)
+      <input
+      placeholder="Amount"
+      value={amount}
+      onChange={e=>setAmount(e.target.value)}
+      />
 
-}
+      <input
+      placeholder="Leverage"
+      value={leverage}
+      onChange={e=>setLeverage(e.target.value)}
+      />
 
-return(
+      <button
+      className="buy"
+      onClick={()=>submit("BUY")}
+      >
+      Buy
+      </button>
 
-<div className="order-panel">
+      <button
+      className="sell"
+      onClick={()=>submit("SELL")}
+      >
+      Sell
+      </button>
 
-<h3>THELION Futures</h3>
+    </div>
 
-<label>Margin Mode</label>
-
-<select>
-<option>Cross</option>
-<option>Isolated</option>
-</select>
-
-<label>Leverage</label>
-
-<input
-value={leverage}
-onChange={(e)=>setLeverage(e.target.value)}
-/>
-
-<label>Price</label>
-
-<input
-value={price}
-onChange={(e)=>setPrice(e.target.value)}
-/>
-
-<label>Amount</label>
-
-<input
-value={amount}
-onChange={(e)=>setAmount(e.target.value)}
-/>
-
-<div className="order-buttons">
-
-<button className="long" onClick={()=>submit("LONG")}>
-LONG
-</button>
-
-<button className="short" onClick={()=>submit("SHORT")}>
-SHORT
-</button>
-
-</div>
-
-</div>
-
-)
+  )
 
 }
