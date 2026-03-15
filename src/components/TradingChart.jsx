@@ -4,22 +4,23 @@ import { TradingContext } from "../store/tradingStore.jsx"
 export default function TradingChart({ pair }){
 
 const chartRef = useRef(null)
+const widgetRef = useRef(null)
 
 const {
 orderLines,
 tpLines,
 slLines,
 liquidationLines,
-livePrice,
-setOrderLines
+livePrice
 } = useContext(TradingContext)
+
+/* create chart only once */
 
 useEffect(()=>{
 
-if(typeof window === "undefined") return
 if(!window.TradingView) return
 
-const widget = new window.TradingView.widget({
+widgetRef.current = new window.TradingView.widget({
 
 container_id:"tradingview_chart",
 
@@ -41,125 +42,95 @@ enable_publishing:false
 
 })
 
-setTimeout(()=>{
+},[pair])
 
-if(!widget.chart) return
+/* draw lines */
 
-const chart = widget.chart()
+useEffect(()=>{
 
-/* =========================
-ORDER LINES
-========================= */
+if(!widgetRef.current) return
+
+const chart = widgetRef.current.chart()
+
+if(!chart) return
+
+/* order lines */
 
 orderLines.forEach(line=>{
 
-const shape = chart.createShape(
-
+chart.createShape(
 { price: line.price },
-
 {
 shape:"horizontal_line",
 text:line.side,
-color: line.side==="BUY" ? "green" : "red",
+color: line.side==="BUY" ? "green":"red",
 lock:false
 }
-
 )
 
-/* cancel order when clicked */
-
-shape.on("click",()=>{
-
-setOrderLines(prev=>prev.filter(l=>l.price!==line.price))
-
 })
 
-})
-
-/* =========================
-TP LINES
-========================= */
+/* TP */
 
 tpLines.forEach(line=>{
 
 chart.createShape(
-
 { price: line.price },
-
 {
 shape:"horizontal_line",
 text:"TP",
 color:"blue"
 }
-
 )
 
 })
 
-/* =========================
-SL LINES
-========================= */
+/* SL */
 
 slLines.forEach(line=>{
 
 chart.createShape(
-
 { price: line.price },
-
 {
 shape:"horizontal_line",
 text:"SL",
 color:"orange"
 }
-
 )
 
 })
 
-/* =========================
-LIQUIDATION
-========================= */
+/* liquidation */
 
 liquidationLines.forEach(line=>{
 
 chart.createShape(
-
 { price: line.price },
-
 {
 shape:"horizontal_line",
 text:"LIQ",
 color:"purple"
 }
-
 )
 
 })
 
-/* =========================
-LIVE PRICE
-========================= */
+/* live price */
 
 if(livePrice){
 
 chart.createShape(
-
 { price: livePrice },
-
 {
 shape:"horizontal_line",
 text:"LIVE",
 color:"yellow"
 }
-
 )
 
 }
 
-},2000)
-
 },[
-pair,
 orderLines,
 tpLines,
 slLines,
