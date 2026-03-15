@@ -177,45 +177,30 @@ border-top:1px solid #1f2937;
 
 }
 
-/* =================================
+/* =========================
 TAB BUTTONS
-================================= */
+========================= */
 
 .tab-buttons{
 
 display:flex;
-
 gap:4px;
-
 padding:6px;
 
 background:#1f2937;
 
 overflow-x:auto;
 
-scroll-behavior:smooth;
-
 }
 
-/* hide scrollbar */
-
-.tab-buttons::-webkit-scrollbar{
-display:none;
-}
-
-.tab-buttons{
-scrollbar-width:none;
-}
-
-/* tab button */
+/* tombol tab */
 
 .tab-buttons button{
 
-font-size:9px;
+appearance:none;
+-webkit-appearance:none;
 
-padding:4px 6px;
-
-background:#374151;
+background:#374151;   /* abu */
 
 color:#e5e7eb;
 
@@ -223,19 +208,34 @@ border:none;
 
 border-radius:3px;
 
+font-size:9px;
+
+padding:4px 6px;
+
 white-space:nowrap;
 
 cursor:pointer;
 
 }
 
-/* active tab */
+/* hover */
+
+.tab-buttons button:hover{
+
+background:#4b5563;
+
+}
+
+/* active */
 
 .tab-buttons button.active{
 
 background:#6b7280;
 
+color:white;
+
 }
+
 
 /* =================================
 TABLE
