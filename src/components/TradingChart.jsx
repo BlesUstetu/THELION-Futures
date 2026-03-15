@@ -8,7 +8,7 @@ function createChart(){
 
 new window.TradingView.widget({
 
-symbol:`BINANCE:${pair}`,
+symbol: pair,
 
 interval:"15",
 
