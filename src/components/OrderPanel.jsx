@@ -1,10 +1,39 @@
-import { useState } from "react"
+import { useState,useContext } from "react"
+import { TradingContext } from "../store/tradingStore"
 
 export default function OrderPanel(){
+
+const { placeOrder } = useContext(TradingContext)
 
 const [price,setPrice]=useState("")
 const [amount,setAmount]=useState("")
 const [leverage,setLeverage]=useState(10)
+
+function submit(side){
+
+const order={
+
+id:Date.now(),
+
+pair:"BTCUSDT",
+
+side:side,
+
+price:price,
+
+amount:amount,
+
+leverage:leverage,
+
+status:"OPEN",
+
+time:new Date().toLocaleTimeString()
+
+}
+
+placeOrder(order)
+
+}
 
 return(
 
@@ -22,7 +51,6 @@ return(
 <label>Leverage</label>
 
 <input
-type="number"
 value={leverage}
 onChange={(e)=>setLeverage(e.target.value)}
 />
@@ -30,28 +58,24 @@ onChange={(e)=>setLeverage(e.target.value)}
 <label>Price</label>
 
 <input
-type="number"
 value={price}
 onChange={(e)=>setPrice(e.target.value)}
-placeholder="Price"
 />
 
 <label>Amount</label>
 
 <input
-type="number"
 value={amount}
 onChange={(e)=>setAmount(e.target.value)}
-placeholder="Amount"
 />
 
 <div className="order-buttons">
 
-<button className="long">
+<button className="long" onClick={()=>submit("LONG")}>
 LONG
 </button>
 
-<button className="short">
+<button className="short" onClick={()=>submit("SHORT")}>
 SHORT
 </button>
 
