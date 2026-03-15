@@ -4,30 +4,32 @@ import BottomTabs from "./components/BottomTabs"
 
 export default function App(){
 
-return(
+  const pair="BTCUSDT"
 
-<div className="terminal">
+  return(
 
-<div className="chart">
+    <div className="app">
 
-<TradingChart pair="BTCUSDT"/>
+      <div className="top">
 
-</div>
+        <div className="chart">
 
-<div className="order">
+          <TradingChart pair={pair}/>
 
-<OrderPanel/>
+        </div>
 
-</div>
+        <div className="order">
 
-<div className="bottom">
+          <OrderPanel/>
 
-<BottomTabs/>
+        </div>
 
-</div>
+      </div>
 
-</div>
+      <BottomTabs/>
 
-)
+    </div>
+
+  )
 
 }
