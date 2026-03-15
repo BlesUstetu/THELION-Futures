@@ -1,241 +1,147 @@
-body{
+/* =========================
+THELION EXCHANGE TERMINAL
+Complete Trading UI Style
+========================= */
+
+*{
 margin:0;
-font-family:Arial;
-background:#0b0f1a;
-color:white;
+padding:0;
+box-sizing:border-box;
+font-family:Arial, Helvetica, sans-serif;
 }
 
-/* DESKTOP LAYOUT */
-
-.terminal{
-
-display:grid;
-
-grid-template-columns:2fr 1fr;
-grid-template-rows:1fr 320px;
-
+body{
+background:#0b0e11;
+color:#e5e7eb;
 height:100vh;
-
-gap:6px;
-padding:6px;
-
-}
-
-/* CHART */
-
-.chart{
-background:#111827;
-border-radius:6px;
 overflow:hidden;
 }
 
-/* ORDER PANEL */
-
-.order{
-background:#111827;
-padding:16px;
-border-radius:6px;
-}
-
-/* BOTTOM PANEL */
-
-.bottom{
-grid-column:1/3;
-background:#111827;
-padding:10px;
-border-radius:6px;
-overflow-x:auto;
-}
-
-/* ORDER FORM */
-
-.order-panel input,
-.order-panel select{
-
-width:100%;
-margin-bottom:10px;
-padding:10px;
-font-size:14px;
-background:#1f2937;
-color:white;
-border:none;
-border-radius:4px;
-
-}
-
-/* BUTTONS */
-
-.order-buttons{
-display:flex;
-gap:10px;
-}
-
-.long{
-background:#16a34a;
-flex:1;
-padding:14px;
-border:none;
-color:white;
-font-weight:bold;
-border-radius:4px;
-}
-
-.short{
-background:#dc2626;
-flex:1;
-padding:14px;
-border:none;
-color:white;
-font-weight:bold;
-border-radius:4px;
-}
-
-/* TABLE */
-
-table{
-width:100%;
-border-collapse:collapse;
-min-width:600px;
-}
-
-th,td{
-padding:8px;
-border-bottom:1px solid #1f2937;
-text-align:left;
-}
-
-/* TABS */
-
-.tab-menu{
-display:flex;
-gap:10px;
-margin-bottom:10px;
-overflow-x:auto;
-white-space:nowrap;
-}
-
-.tab-menu button{
-background:#1f2937;
-border:none;
-color:white;
-padding:8px 12px;
-border-radius:4px;
-}
-
-.profit{
-color:#22c55e;
-}
-
-/* ---------------- */
-/* MOBILE LAYOUT */
-/* ---------------- */
-
-@media (max-width:768px){
-
-.terminal{
-
-grid-template-columns:1fr;
-
-grid-template-rows:
-50vh
-auto
-260px;
-
-}
-
-/* chart height mobile */
-
-.chart{
-
-height:50vh;
-
-}
-
-/* order panel mobile */
-
-.order{
-
-padding:16px;
-
-}
-
-/* bottom tabs */
-
-.bottom{
-
-grid-column:auto;
-
-overflow-x:auto;
-
-}
-
-/* bigger buttons */
-
-.long,
-.short{
-
-height:48px;
-font-size:16px;
-
-}
-
-/* tables scroll */
-
-table{
-
-min-width:700px;
-
-}
-
-}
+/* =========================
+APP LAYOUT
+========================= */
 
 .app{
-
 display:flex;
 flex-direction:column;
 height:100vh;
-background:#0b0e11;
-color:white;
-
+width:100%;
 }
+
+/* =========================
+TOP TERMINAL
+Chart + Order Panel
+========================= */
 
 .top{
 
 display:grid;
+
 grid-template-columns:2fr 1fr;
-height:70%;
+
+height:70vh;
+
+background:#0b0e11;
 
 }
 
+/* =========================
+CHART
+========================= */
+
 .chart{
 
-border-right:1px solid #222;
+position:relative;
+
+width:100%;
+
+height:100%;
+
+background:#0b0e11;
+
+border-right:1px solid #1f2937;
+
+}
+
+/* tradingview container */
+
+#tradingview_chart{
+
+width:100%;
+
+height:100%;
+
+}
+
+/* =========================
+ORDER PANEL
+========================= */
+
+.order{
+
+background:#111827;
+
+padding:15px;
+
+display:flex;
+
+flex-direction:column;
 
 }
 
 .order-panel{
 
-padding:10px;
+display:flex;
+
+flex-direction:column;
+
+gap:10px;
 
 }
 
-input{
+.order-panel h3{
+
+font-size:16px;
+
+margin-bottom:5px;
+
+}
+
+/* inputs */
+
+.order-panel input{
 
 width:100%;
-padding:8px;
-margin-bottom:8px;
-background:#111;
-border:1px solid #333;
+
+padding:10px;
+
+background:#1f2937;
+
+border:1px solid #374151;
+
+border-radius:4px;
+
 color:white;
 
+font-size:14px;
+
 }
+
+/* buttons */
 
 button{
 
-width:100%;
 padding:10px;
-margin-top:5px;
+
+border:none;
+
 cursor:pointer;
+
+border-radius:3px;
+
+font-size:14px;
+
+transition:0.2s;
 
 }
 
@@ -243,20 +149,187 @@ cursor:pointer;
 
 background:#16a34a;
 
+color:white;
+
+}
+
+.buy:hover{
+
+background:#15803d;
+
 }
 
 .sell{
 
 background:#dc2626;
 
+color:white;
+
 }
+
+.sell:hover{
+
+background:#b91c1c;
+
+}
+
+/* =========================
+BOTTOM TERMINAL
+========================= */
+
+.bottom-tabs{
+
+height:30vh;
+
+background:#0b0e11;
+
+display:flex;
+
+flex-direction:column;
+
+}
+
+/* =========================
+TAB BUTTONS
+========================= */
+
+.tab-buttons{
+
+display:flex;
+
+gap:10px;
+
+padding:8px;
+
+border-top:1px solid #1f2937;
+
+border-bottom:1px solid #1f2937;
+
+background:#0b0e11;
+
+}
+
+.tab-buttons button{
+
+flex:1;
+
+background:#1f2937;
+
+color:#d1d5db;
+
+}
+
+.tab-buttons button:hover{
+
+background:#374151;
+
+}
+
+/* =========================
+TABLES
+========================= */
+
+.table-container{
+
+flex:1;
+
+overflow:auto;
+
+}
+
+table{
+
+width:100%;
+
+border-collapse:collapse;
+
+font-size:13px;
+
+}
+
+thead{
+
+background:#111827;
+
+}
+
+th{
+
+padding:10px;
+
+text-align:left;
+
+border-bottom:1px solid #1f2937;
+
+}
+
+td{
+
+padding:10px;
+
+border-bottom:1px solid #1f2937;
+
+}
+
+/* =========================
+SCROLLBAR
+========================= */
+
+::-webkit-scrollbar{
+
+width:6px;
+
+height:6px;
+
+}
+
+::-webkit-scrollbar-thumb{
+
+background:#374151;
+
+border-radius:10px;
+
+}
+
+/* =========================
+MOBILE
+========================= */
 
 @media(max-width:900px){
 
 .top{
 
 grid-template-columns:1fr;
+
 grid-template-rows:60% 40%;
+
+}
+
+.bottom-tabs{
+
+height:40vh;
+
+}
+
+}
+
+/* =========================
+SMALL MOBILE
+========================= */
+
+@media(max-width:600px){
+
+.order-panel input{
+
+font-size:12px;
+
+}
+
+button{
+
+font-size:12px;
+
+padding:8px;
 
 }
 
