@@ -1,4 +1,4 @@
-import { createContext, useState } from "react"
+import { createContext, useState, useEffect } from "react"
 
 export const TradingContext = createContext()
 
@@ -9,9 +9,16 @@ const [openOrders,setOpenOrders] = useState([])
 const [orderHistory,setOrderHistory] = useState([])
 const [tradeHistory,setTradeHistory] = useState([])
 
-/* order lines for chart */
+/* existing */
 
 const [orderLines,setOrderLines] = useState([])
+
+/* new features */
+
+const [tpLines,setTpLines] = useState([])
+const [slLines,setSlLines] = useState([])
+const [liquidationLines,setLiquidationLines] = useState([])
+const [livePrice,setLivePrice] = useState(null)
 
 /* =========================
 PLACE ORDER
@@ -34,13 +41,43 @@ setOpenOrders(prev=>[...prev,newOrder])
 
 setOrderHistory(prev=>[...prev,newOrder])
 
-/* add line to chart */
+/* order line */
 
 setOrderLines(prev=>[
 ...prev,
 {
 price:newOrder.price,
 side:newOrder.side
+}
+])
+
+/* TP line */
+
+setTpLines(prev=>[
+...prev,
+{
+price:newOrder.price * 1.02,
+side:"TP"
+}
+])
+
+/* SL line */
+
+setSlLines(prev=>[
+...prev,
+{
+price:newOrder.price * 0.98,
+side:"SL"
+}
+])
+
+/* liquidation example */
+
+setLiquidationLines(prev=>[
+...prev,
+{
+price:newOrder.price * 0.9,
+side:"LIQ"
 }
 ])
 
@@ -92,6 +129,28 @@ setTradeHistory(prev=>[...prev,closedTrade])
 
 }
 
+/* =========================
+LIVE PRICE FEED
+========================= */
+
+useEffect(()=>{
+
+const ws = new WebSocket(
+"wss://stream.binance.com:9443/ws/btcusdt@trade"
+)
+
+ws.onmessage=(event)=>{
+
+const data = JSON.parse(event.data)
+
+setLivePrice(Number(data.p))
+
+}
+
+return ()=>ws.close()
+
+},[])
+
 return(
 
 <TradingContext.Provider
@@ -102,11 +161,18 @@ positions,
 openOrders,
 orderHistory,
 tradeHistory,
+
 orderLines,
+tpLines,
+slLines,
+liquidationLines,
+livePrice,
 
 placeOrder,
 fillOrder,
-closePosition
+closePosition,
+
+setOrderLines
 
 }}
 
