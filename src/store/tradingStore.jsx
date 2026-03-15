@@ -2,96 +2,120 @@ import { createContext, useState } from "react"
 
 export const TradingContext = createContext()
 
-export function TradingProvider({ children }) {
+export function TradingProvider({ children }){
 
-  const [positions,setPositions] = useState([])
-  const [openOrders,setOpenOrders] = useState([])
-  const [orderHistory,setOrderHistory] = useState([])
-  const [tradeHistory,setTradeHistory] = useState([])
+const [positions,setPositions] = useState([])
+const [openOrders,setOpenOrders] = useState([])
+const [orderHistory,setOrderHistory] = useState([])
+const [tradeHistory,setTradeHistory] = useState([])
 
-  function placeOrder(order){
-    const newOrder = {
-      id:Date.now(),
-      pair:order.pair,
-      side:order.side,
-      price:Number(order.price),
-      amount:Number(order.amount),
-      leverage:Number(order.leverage || 1),
-      status:"OPEN",
-      time:new Date().toLocaleTimeString()
-    }
+/* order lines for chart */
 
-    setOpenOrders(prev=>[...prev,newOrder])
-    setOrderHistory(prev=>[...prev,newOrder])
+const [orderLines,setOrderLines] = useState([])
 
-    // simulasi order langsung terisi
-    setTimeout(()=>{
-      setOpenOrders(prev=>prev.filter(o=>o.id!==newOrder.id))
-      setPositions(prev=>[
-        ...prev,
-       {
-          ...newOrder,
-          entry:newOrder.price
-       }
-    ])
+/* =========================
+PLACE ORDER
+========================= */
 
-    setTradeHistory(prev=>[...prev,newOrder])
+function placeOrder(order){
 
-  },1000)
+const newOrder={
+id:Date.now(),
+pair:order.pair,
+side:order.side,
+price:Number(order.price),
+amount:Number(order.amount),
+leverage:Number(order.leverage || 1),
+status:"OPEN",
+time:new Date().toLocaleTimeString()
+}
+
+setOpenOrders(prev=>[...prev,newOrder])
+
+setOrderHistory(prev=>[...prev,newOrder])
+
+/* add line to chart */
+
+setOrderLines(prev=>[
+...prev,
+{
+price:newOrder.price,
+side:newOrder.side
+}
+])
 
 }
-  function fillOrder(orderId){
 
-    const order=openOrders.find(o=>o.id===orderId)
+/* =========================
+FILL ORDER
+========================= */
 
-    if(!order) return
+function fillOrder(orderId){
 
-    const position={
-      ...order,
-      entry:order.price,
-      pnl:0
-    }
+const order=openOrders.find(o=>o.id===orderId)
 
-    setPositions(prev=>[...prev,position])
-    setOpenOrders(prev=>prev.filter(o=>o.id!==orderId))
-    setTradeHistory(prev=>[...prev,order])
-  }
+if(!order) return
 
-  function closePosition(positionId){
+const position={
+...order,
+entry:order.price,
+pnl:0
+}
 
-    const pos=positions.find(p=>p.id===positionId)
+setPositions(prev=>[...prev,position])
 
-    if(!pos) return
+setOpenOrders(prev=>prev.filter(o=>o.id!==orderId))
 
-    setPositions(prev=>prev.filter(p=>p.id!==positionId))
+setTradeHistory(prev=>[...prev,order])
 
-    const closedTrade={
-      ...pos,
-      closeTime:new Date().toLocaleTimeString(),
-      status:"CLOSED"
-    }
+}
 
-    setTradeHistory(prev=>[...prev,closedTrade])
-  }
+/* =========================
+CLOSE POSITION
+========================= */
 
-  return(
+function closePosition(positionId){
 
-    <TradingContext.Provider
-      value={{
-        positions,
-        openOrders,
-        orderHistory,
-        tradeHistory,
-        placeOrder,
-        fillOrder,
-        closePosition
-      }}
-    >
+const pos=positions.find(p=>p.id===positionId)
 
-      {children}
+if(!pos) return
 
-    </TradingContext.Provider>
+setPositions(prev=>prev.filter(p=>p.id!==positionId))
 
-  )
+const closedTrade={
+...pos,
+closeTime:new Date().toLocaleTimeString(),
+status:"CLOSED"
+}
+
+setTradeHistory(prev=>[...prev,closedTrade])
+
+}
+
+return(
+
+<TradingContext.Provider
+
+value={{
+
+positions,
+openOrders,
+orderHistory,
+tradeHistory,
+orderLines,
+
+placeOrder,
+fillOrder,
+closePosition
+
+}}
+
+>
+
+{children}
+
+</TradingContext.Provider>
+
+)
 
 }
