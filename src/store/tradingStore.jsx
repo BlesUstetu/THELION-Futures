@@ -10,7 +10,6 @@ export function TradingProvider({ children }) {
   const [tradeHistory,setTradeHistory] = useState([])
 
   function placeOrder(order){
-
     const newOrder = {
       id:Date.now(),
       pair:order.pair,
@@ -24,8 +23,23 @@ export function TradingProvider({ children }) {
 
     setOpenOrders(prev=>[...prev,newOrder])
     setOrderHistory(prev=>[...prev,newOrder])
-  }
 
+    // simulasi order langsung terisi
+    setTimeout(()=>{
+      setOpenOrders(prev=>prev.filter(o=>o.id!==newOrder.id))
+      setPositions(prev=>[
+        ...prev,
+       {
+          ...newOrder,
+          entry:newOrder.price
+       }
+    ])
+
+    setTradeHistory(prev=>[...prev,newOrder])
+
+  },1000)
+
+}
   function fillOrder(orderId){
 
     const order=openOrders.find(o=>o.id===orderId)
