@@ -1,9 +1,9 @@
 import { useEffect, useRef, useContext } from "react"
 import { TradingContext } from "../store/tradingStore.jsx"
 
-export default function TradingChart({ pair }){
+export default function TradingChart({ pair }) {
 
-const chartRef = useRef(null)
+const containerRef = useRef(null)
 const widgetRef = useRef(null)
 
 const {
@@ -14,7 +14,7 @@ liquidationLines,
 livePrice
 } = useContext(TradingContext)
 
-/* create chart only once */
+/* create widget */
 
 useEffect(()=>{
 
@@ -22,11 +22,11 @@ if(!window.TradingView) return
 
 widgetRef.current = new window.TradingView.widget({
 
-container_id:"tradingview_chart",
-
 symbol:"BINANCE:"+pair,
 
 interval:"15",
+
+container_id:"tradingview_chart",
 
 theme:"dark",
 
@@ -50,9 +50,9 @@ useEffect(()=>{
 
 if(!widgetRef.current) return
 
-const chart = widgetRef.current.chart()
+widgetRef.current.onChartReady(()=>{
 
-if(!chart) return
+const chart = widgetRef.current.chart()
 
 /* order lines */
 
@@ -130,6 +130,8 @@ color:"yellow"
 
 }
 
+})
+
 },[
 orderLines,
 tpLines,
@@ -142,7 +144,7 @@ return(
 
 <div
 id="tradingview_chart"
-ref={chartRef}
+ref={containerRef}
 style={{width:"100%",height:"100%"}}
 />
 
