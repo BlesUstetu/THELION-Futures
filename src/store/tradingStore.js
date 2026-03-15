@@ -1,50 +1,82 @@
 import { createContext, useState } from "react"
-
 export const TradingContext = createContext()
+export function TradingProvider({ children }) {
+  const [positions, setPositions] = useState([])
+  const [openOrders, setOpenOrders] = useState([])
+  const [orderHistory, setOrderHistory] = useState([])
+  const [tradeHistory, setTradeHistory] = useState([])
 
-export function TradingProvider({children}){
+  // membuat order baru
+  function placeOrder(order) {
+    const newOrder = {
+      ...order,
+      status: "OPEN"
+    }
+    setOpenOrders(prev => [...prev, newOrder])
+    setOrderHistory(prev => [...prev, newOrder])
+  }
 
-const [positions,setPositions]=useState([])
-const [openOrders,setOpenOrders]=useState([])
-const [orderHistory,setOrderHistory]=useState([])
-const [tradeHistory,setTradeHistory]=useState([])
+  // simulasi order terisi
+  function fillOrder(orderId) {
 
-function placeOrder(order){
+    const order = openOrders.find(o => o.id === orderId)
 
-setOpenOrders(prev=>[...prev,order])
+    if (!order) return
 
-setOrderHistory(prev=>[...prev,order])
+    const filledOrder = {
+      ...order,
+      status: "FILLED"
+    }
 
-}
+    // hapus dari open orders
+    setOpenOrders(prev => prev.filter(o => o.id !== orderId))
 
-function fillOrder(order){
+    // tambahkan ke positions
+    setPositions(prev => [...prev, filledOrder])
 
-setOpenOrders(prev=>prev.filter(o=>o.id!==order.id))
+    // tambahkan ke trade history
+    setTradeHistory(prev => [...prev, filledOrder])
 
-setPositions(prev=>[...prev,order])
+  }
 
-setTradeHistory(prev=>[...prev,order])
+  // menutup posisi
+  function closePosition(positionId) {
 
-}
+    const position = positions.find(p => p.id === positionId)
 
-return(
+    if (!position) return
 
-<TradingContext.Provider value={{
+    setPositions(prev => prev.filter(p => p.id !== positionId))
 
-positions,
-openOrders,
-orderHistory,
-tradeHistory,
+    const closedTrade = {
+      ...position,
+      status: "CLOSED",
+      closeTime: new Date().toLocaleTimeString()
+    }
 
-placeOrder,
-fillOrder
+    setTradeHistory(prev => [...prev, closedTrade])
 
-}}>
+  }
 
-{children}
+  return (
 
-</TradingContext.Provider>
+    <TradingContext.Provider value={{
 
-)
+      positions,
+      openOrders,
+      orderHistory,
+      tradeHistory,
+
+      placeOrder,
+      fillOrder,
+      closePosition
+
+    }}>
+
+      {children}
+
+    </TradingContext.Provider>
+
+  )
 
 }
