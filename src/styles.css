@@ -225,9 +225,21 @@ display:flex;
 gap:4px;
 padding:6px;
 
-background:#1f2937;   /* abu gelap */
+background:#1f2937;
 
 overflow-x:auto;
+
+/* scroll mobile smooth */
+scroll-behavior:smooth;
+scrollbar-width:none;
+
+}
+
+/* sembunyikan scrollbar mobile */
+
+.tab-buttons::-webkit-scrollbar{
+
+display:none;
 
 }
 
