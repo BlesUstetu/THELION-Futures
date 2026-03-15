@@ -1,6 +1,6 @@
 /* =================================
-THELION EXCHANGE TERMINAL UI
-Full Trading Layout
+THELION EXCHANGE TERMINAL
+Full Trading UI
 Desktop + Mobile Responsive
 ================================= */
 
@@ -19,7 +19,7 @@ overflow:hidden;
 }
 
 /* =================================
-APP CONTAINER
+APP LAYOUT
 ================================= */
 
 .app{
@@ -31,7 +31,6 @@ width:100%;
 
 /* =================================
 TOP TERMINAL
-Chart + Order Panel
 ================================= */
 
 .top{
@@ -52,7 +51,6 @@ CHART
 position:relative;
 
 width:100%;
-
 height:100%;
 
 background:#0b0e11;
@@ -60,8 +58,6 @@ background:#0b0e11;
 border-right:1px solid #1f2937;
 
 }
-
-/* tradingview container */
 
 #tradingview_chart{
 
@@ -78,12 +74,10 @@ ORDER PANEL
 
 background:#111827;
 
-padding:16px;
+padding:14px;
 
 display:flex;
 flex-direction:column;
-
-width:100%;
 
 }
 
@@ -92,17 +86,13 @@ width:100%;
 display:flex;
 flex-direction:column;
 
-gap:12px;
-
-width:100%;
+gap:10px;
 
 }
 
 .order-panel h3{
 
-font-size:16px;
-
-margin-bottom:4px;
+font-size:14px;
 
 }
 
@@ -112,25 +102,17 @@ margin-bottom:4px;
 
 width:100%;
 
-padding:10px 12px;
+padding:8px;
 
 background:#1f2937;
 
 border:1px solid #374151;
 
-border-radius:4px;
+border-radius:3px;
 
 color:white;
 
-font-size:14px;
-
-outline:none;
-
-}
-
-.order-panel input:focus{
-
-border-color:#2563eb;
+font-size:12px;
 
 }
 
@@ -144,7 +126,7 @@ display:grid;
 
 grid-template-columns:1fr 1fr;
 
-gap:8px;
+gap:6px;
 
 }
 
@@ -152,49 +134,29 @@ gap:8px;
 
 width:100%;
 
-padding:12px;
+padding:8px;
 
 border:none;
 
-font-size:14px;
+font-size:12px;
 
-border-radius:4px;
+border-radius:3px;
 
 cursor:pointer;
 
-transition:0.2s;
-
 }
-
-/* BUY */
 
 .buy{
 
 background:#16a34a;
-
 color:white;
 
 }
-
-.buy:hover{
-
-background:#15803d;
-
-}
-
-/* SELL */
 
 .sell{
 
 background:#dc2626;
-
 color:white;
-
-}
-
-.sell:hover{
-
-background:#b91c1c;
 
 }
 
@@ -215,45 +177,50 @@ border-top:1px solid #1f2937;
 
 }
 
-/* =========================
+/* =================================
 TAB BUTTONS
-========================= */
+================================= */
 
 .tab-buttons{
 
 display:flex;
+
 gap:4px;
+
 padding:6px;
 
 background:#1f2937;
 
 overflow-x:auto;
 
-/* scroll mobile smooth */
 scroll-behavior:smooth;
-scrollbar-width:none;
 
 }
 
-/* sembunyikan scrollbar mobile */
+/* hide scrollbar */
 
 .tab-buttons::-webkit-scrollbar{
-
 display:none;
-
 }
 
-/* tombol tab */
+.tab-buttons{
+scrollbar-width:none;
+}
+
+/* tab button */
 
 .tab-buttons button{
 
-font-size:9px;          /* lebih kecil */
+font-size:9px;
+
 padding:4px 6px;
 
-background:#374151;     /* abu */
+background:#374151;
+
 color:#e5e7eb;
 
 border:none;
+
 border-radius:3px;
 
 white-space:nowrap;
@@ -262,34 +229,11 @@ cursor:pointer;
 
 }
 
-/* hover */
-
-.tab-buttons button:hover{
-
-background:#4b5563;
-
-}
-
-/* tab aktif */
+/* active tab */
 
 .tab-buttons button.active{
 
 background:#6b7280;
-
-color:white;
-
-}
-
-/* mobile */
-
-@media (max-width:768px){
-
-.tab-buttons button{
-
-font-size:8px;
-padding:4px 5px;
-
-}
 
 }
 
@@ -311,7 +255,7 @@ width:100%;
 
 border-collapse:collapse;
 
-font-size:13px;
+font-size:11px;
 
 }
 
@@ -323,7 +267,7 @@ background:#111827;
 
 th{
 
-padding:10px;
+padding:6px;
 
 text-align:left;
 
@@ -333,19 +277,9 @@ border-bottom:1px solid #1f2937;
 
 td{
 
-padding:10px;
+padding:6px;
 
 border-bottom:1px solid #1f2937;
-
-}
-
-/* =================================
-EMPTY TABLE ROW HEIGHT
-================================= */
-
-tbody tr{
-
-height:40px;
 
 }
 
@@ -355,8 +289,8 @@ SCROLLBAR
 
 ::-webkit-scrollbar{
 
-width:6px;
-height:6px;
+width:5px;
+height:5px;
 
 }
 
@@ -369,8 +303,7 @@ border-radius:10px;
 }
 
 /* =================================
-MOBILE RESPONSIVE
-Order panel pindah ke bawah chart
+MOBILE LAYOUT
 ================================= */
 
 @media (max-width:900px){
@@ -378,7 +311,6 @@ Order panel pindah ke bawah chart
 .top{
 
 display:flex;
-
 flex-direction:column;
 
 height:auto;
@@ -405,11 +337,11 @@ border-bottom:1px solid #1f2937;
 
 width:100%;
 
-padding:12px;
+padding:10px;
 
 }
 
-/* bottom tables */
+/* bottom */
 
 .bottom-tabs{
 
@@ -417,23 +349,13 @@ height:40vh;
 
 }
 
-/* inputs mobile */
+/* tab buttons mobile */
 
-.order-panel input{
+.tab-buttons button{
 
-font-size:13px;
+font-size:8px;
 
-padding:8px;
-
-}
-
-/* buttons mobile */
-
-.order-buttons button{
-
-padding:14px;
-
-font-size:15px;
+padding:3px 5px;
 
 }
 
@@ -457,56 +379,9 @@ height:45vh;
 
 }
 
-.order-panel{
-
-gap:8px;
-
-}
-
 .order-buttons button{
 
-padding:12px;
-
-}
-
-}
-
-/* =========================
-MOBILE TAB FIX
-========================= */
-
-@media (max-width:768px){
-
-.tab-buttons{
-
-gap:4px;
-padding:6px;
-overflow-x:auto;
-
-}
-
-/* tombol tab */
-
-.tab-buttons button{
-
-font-size:8px;
-padding:6px 4px;
-
-white-space:nowrap;
-
-}
-
-/* tabel */
-
-table{
-
 font-size:11px;
-
-}
-
-th, td{
-
-padding:6px;
 
 }
 
