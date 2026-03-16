@@ -1,4 +1,4 @@
-import TradingChart from "./components/TradingChart"
+import StableChart from "./components/StableChart"
 import OrderPanel from "./components/OrderPanel"
 import BottomTabs from "./components/BottomTabs"
 
@@ -13,7 +13,7 @@ return(
 <div className="top">
 
 <div className="chart">
-<TradingChart pair={pair}/>
+<StableChart/>
 </div>
 
 <OrderPanel/>
