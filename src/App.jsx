@@ -1,12 +1,13 @@
 import StableChart from "./components/StableChart"
 import OrderPanel from "./components/OrderPanel"
 import BottomTabs from "./components/BottomTabs"
+import { TradingProvider } from "./store/tradingStore"
 
 export default function App(){
 
-const pair="BTCUSDT"
-
 return(
+
+<TradingProvider>
 
 <div className="app">
 
@@ -23,6 +24,8 @@ return(
 <BottomTabs/>
 
 </div>
+
+</TradingProvider>
 
 )
 
