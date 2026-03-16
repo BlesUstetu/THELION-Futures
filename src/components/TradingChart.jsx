@@ -1,85 +1,125 @@
 import { useEffect, useRef, useContext } from "react"
 import { TradingContext } from "../store/tradingStore.jsx"
 
-export default function TradingChart({ pair }){
+export default function TradingChart({ pair }) {
 
-const chartRef = useRef(null)
+  const chartContainerRef = useRef(null)
+  const widgetRef = useRef(null)
 
-const { orderLines } = useContext(TradingContext)
+  const { orderLines } = useContext(TradingContext)
 
-useEffect(()=>{
+  /* ===============================
+     CREATE WIDGET (ONLY ONCE)
+  =============================== */
 
-if(typeof window === "undefined") return
-if(!window.TradingView) return
+  useEffect(() => {
 
-const widget = new window.TradingView.widget({
+    if (!window.TradingView) return
 
-container_id:"tradingview_chart",
+    if (widgetRef.current) {
+      widgetRef.current.remove()
+      widgetRef.current = null
+    }
 
-symbol:"BINANCE:"+pair,
+    widgetRef.current = new window.TradingView.widget({
 
-interval:"15",
+      symbol: "BINANCE:" + pair,
 
-theme:"dark",
+      interval: "15",
 
-style:"1",
+      container_id: "tradingview_chart",
 
-locale:"en",
+      theme: "dark",
 
-autosize:true,
+      style: "1",
 
-toolbar_bg:"#0b0e11",
+      locale: "en",
 
-enable_publishing:false,
+      autosize: true,
 
-hide_top_toolbar:false
+      toolbar_bg: "#0b0e11",
 
-})
+      enable_publishing: false,
 
-/* draw order lines */
+      hide_top_toolbar: false,
 
-setTimeout(()=>{
+      hide_legend: false,
 
-if(!widget.chart) return
+      save_image: false
+    })
 
-try{
+    widgetRef.current.onChartReady(() => {
 
-orderLines.forEach(line=>{
+      console.log("Chart Ready")
 
-widget.chart().createShape(
+    })
 
-{ price: line.price },
+    return () => {
 
-{
-shape:"horizontal_line",
-text:line.side,
-color: line.side==="BUY" ? "green" : "red",
-disableSelection:true,
-disableSave:true
-}
+      if (widgetRef.current) {
 
-)
+        widgetRef.current.remove()
+        widgetRef.current = null
 
-})
+      }
 
-}catch(e){
+    }
 
-console.log("chart not ready")
+  }, [pair])
 
-}
+  /* ===============================
+     DRAW ORDER LINES
+  =============================== */
 
-},2000)
+  useEffect(() => {
 
-},[pair,orderLines])
+    const widget = widgetRef.current
 
-return(
+    if (!widget) return
 
-<div
-id="tradingview_chart"
-ref={chartRef}
-style={{width:"100%",height:"100%"}}
-/>
+    widget.onChartReady(() => {
 
-)
+      const chart = widget.chart()
+
+      try {
+
+        orderLines.forEach(line => {
+
+          chart.createShape(
+            { price: line.price },
+            {
+              shape: "horizontal_line",
+              text: line.side,
+              color: line.side === "BUY" ? "#00ff9c" : "#ff4976",
+              disableSelection: true,
+              disableSave: true,
+              lock: true
+            }
+          )
+
+        })
+
+      } catch (e) {
+
+        console.log("order line error")
+
+      }
+
+    })
+
+  }, [orderLines])
+
+  return (
+
+    <div
+      id="tradingview_chart"
+      ref={chartContainerRef}
+      style={{
+        width: "100%",
+        height: "100%"
+      }}
+    />
+
+  )
 
 }
