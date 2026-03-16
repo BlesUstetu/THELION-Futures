@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect } from "react"
+import { createContext, useState } from "react"
 
 export const TradingContext = createContext()
 
@@ -9,15 +9,11 @@ const [openOrders,setOpenOrders] = useState([])
 const [orderHistory,setOrderHistory] = useState([])
 const [tradeHistory,setTradeHistory] = useState([])
 
-/* existing */
-
 const [orderLines,setOrderLines] = useState([])
-
-/* new features */
-
 const [tpLines,setTpLines] = useState([])
 const [slLines,setSlLines] = useState([])
 const [liquidationLines,setLiquidationLines] = useState([])
+
 const [livePrice,setLivePrice] = useState(null)
 
 /* =========================
@@ -26,8 +22,10 @@ PLACE ORDER
 
 function placeOrder(order){
 
+const id = Date.now()
+
 const newOrder={
-id:Date.now(),
+id,
 pair:order.pair,
 side:order.side,
 price:Number(order.price),
@@ -38,48 +36,46 @@ time:new Date().toLocaleTimeString()
 }
 
 setOpenOrders(prev=>[...prev,newOrder])
-
 setOrderHistory(prev=>[...prev,newOrder])
-
-/* order line */
 
 setOrderLines(prev=>[
 ...prev,
 {
+orderId:id,
 price:newOrder.price,
 side:newOrder.side
 }
 ])
 
-/* TP line */
-
 setTpLines(prev=>[
 ...prev,
 {
-price:newOrder.price * 1.02,
-side:"TP"
+orderId:id,
+price:newOrder.price * 1.02
 }
 ])
-
-/* SL line */
 
 setSlLines(prev=>[
 ...prev,
 {
-price:newOrder.price * 0.98,
-side:"SL"
+orderId:id,
+price:newOrder.price * 0.98
 }
 ])
 
-/* liquidation example */
-
-setLiquidationLines(prev=>[
-...prev,
-{
-price:newOrder.price * 0.9,
-side:"LIQ"
 }
-])
+
+/* =========================
+CANCEL ORDER
+========================= */
+
+function cancelOrder(id){
+
+setOpenOrders(prev=>prev.filter(o=>o.id!==id))
+
+setOrderLines(prev=>prev.filter(l=>l.orderId!==id))
+setTpLines(prev=>prev.filter(l=>l.orderId!==id))
+setSlLines(prev=>prev.filter(l=>l.orderId!==id))
 
 }
 
@@ -87,75 +83,27 @@ side:"LIQ"
 FILL ORDER
 ========================= */
 
-function fillOrder(orderId){
+function fillOrder(order){
 
-const order=openOrders.find(o=>o.id===orderId)
+setPositions(prev=>[...prev,order])
 
-if(!order) return
-
-const position={
+setTradeHistory(prev=>[
+...prev,
+{
 ...order,
-entry:order.price,
-pnl:0
+time:new Date().toLocaleTimeString()
 }
+])
 
-setPositions(prev=>[...prev,position])
-
-setOpenOrders(prev=>prev.filter(o=>o.id!==orderId))
-
-setTradeHistory(prev=>[...prev,order])
+cancelOrder(order.id)
 
 }
 
-/* =========================
-CLOSE POSITION
-========================= */
-
-function closePosition(positionId){
-
-const pos=positions.find(p=>p.id===positionId)
-
-if(!pos) return
-
-setPositions(prev=>prev.filter(p=>p.id!==positionId))
-
-const closedTrade={
-...pos,
-closeTime:new Date().toLocaleTimeString(),
-status:"CLOSED"
-}
-
-setTradeHistory(prev=>[...prev,closedTrade])
-
-}
-
-/* =========================
-LIVE PRICE FEED
-========================= */
-
-useEffect(()=>{
-
-const ws = new WebSocket(
-"wss://stream.binance.com:9443/ws/btcusdt@trade"
-)
-
-ws.onmessage=(event)=>{
-
-const data = JSON.parse(event.data)
-
-setLivePrice(Number(data.p))
-
-}
-
-return ()=>ws.close()
-
-},[])
+/* ========================= */
 
 return(
 
-<TradingContext.Provider
-
-value={{
+<TradingContext.Provider value={{
 
 positions,
 openOrders,
@@ -166,17 +114,15 @@ orderLines,
 tpLines,
 slLines,
 liquidationLines,
+
 livePrice,
+setLivePrice,
 
 placeOrder,
-fillOrder,
-closePosition,
+cancelOrder,
+fillOrder
 
-setOrderLines
-
-}}
-
->
+}}>
 
 {children}
 
