@@ -5,9 +5,16 @@ import { useTrading } from "../store/tradingStore"
 export default function TradingChart() {
   const chartRef = useRef()
   const candleSeriesRef = useRef()
+  const emaSeriesRef = useRef()
+  const rsiSeriesRef = useRef()
+
   const linesRef = useRef({})
   const dragRef = useRef(null)
   const livePriceRef = useRef(0)
+
+  const emaValueRef = useRef(null)
+  const gainsRef = useRef([])
+  const lossesRef = useRef([])
 
   const {
     orders,
@@ -16,201 +23,150 @@ export default function TradingChart() {
     cancelOrder,
     updateTP,
     updateSL,
-    updateEntry
+    updateEntry,
+    pair,
+    timeframe
   } = useTrading()
 
-  // ===============================
-  // INIT CHART
-  // ===============================
   useEffect(() => {
     const chart = createChart(chartRef.current, {
       width: chartRef.current.clientWidth,
       height: 500,
-      layout: {
-        background: { color: "#0b0f14" },
-        textColor: "#ccc"
-      },
-      grid: {
-        vertLines: { color: "#1e222d" },
-        horzLines: { color: "#1e222d" }
-      }
+      layout: { background: { color: "#0b0f14" }, textColor: "#ccc" },
+      grid: { vertLines: { color: "#1e222d" }, horzLines: { color: "#1e222d" } }
     })
 
-    const candleSeries = chart.addCandlestickSeries()
-    candleSeriesRef.current = candleSeries
+    const candle = chart.addCandlestickSeries()
+    const ema = chart.addLineSeries({ color: "#ffaa00" })
+    const rsi = chart.addLineSeries({ color: "#00aaff" })
 
-    const now = Math.floor(Date.now() / 1000)
-
-    const data = Array.from({ length: 100 }, (_, i) => ({
-      time: now - (100 - i) * 60,
-      open: 100,
-      high: 105,
-      low: 95,
-      close: 100
-    }))
-
-    candleSeries.setData(data)
+    candleSeriesRef.current = candle
+    emaSeriesRef.current = ema
+    rsiSeriesRef.current = rsi
 
     // ===============================
-    // BINANCE WEBSOCKET
+    // WEBSOCKET (PAIR + TF)
     // ===============================
-    const ws = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@trade")
+    const ws = new WebSocket(
+      `wss://stream.binance.com:9443/ws/${pair}@kline_${timeframe}`
+    )
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      const price = parseFloat(data.p)
+    ws.onmessage = (e) => {
+      const k = JSON.parse(e.data).k
 
+      const price = parseFloat(k.c)
       livePriceRef.current = price
 
-      candleSeries.update({
-        time: Math.floor(Date.now() / 1000),
-        open: price,
-        high: price,
-        low: price,
+      const candleData = {
+        time: Math.floor(k.t / 1000),
+        open: +k.o,
+        high: +k.h,
+        low: +k.l,
         close: price
-      })
+      }
+
+      candle.update(candleData)
+
+      // EMA
+      const m = 2 / (14 + 1)
+      emaValueRef.current = emaValueRef.current
+        ? (price - emaValueRef.current) * m + emaValueRef.current
+        : price
+
+      ema.update({ time: candleData.time, value: emaValueRef.current })
+
+      // RSI
+      const prev = livePriceRef.prev || price
+      const diff = price - prev
+
+      gainsRef.current.push(Math.max(diff, 0))
+      lossesRef.current.push(Math.max(-diff, 0))
+
+      if (gainsRef.current.length > 14) gainsRef.current.shift()
+      if (lossesRef.current.length > 14) lossesRef.current.shift()
+
+      const avgGain = gainsRef.current.reduce((a, b) => a + b, 0) / 14
+      const avgLoss = lossesRef.current.reduce((a, b) => a + b, 0) / 14
+
+      const rs = avgGain / (avgLoss || 1)
+      const rsiVal = 100 - (100 / (1 + rs))
+
+      rsi.update({ time: candleData.time, value: rsiVal })
+
+      livePriceRef.prev = price
     }
-
-    // ===============================
-    // CROSSHAIR (DRAG)
-    // ===============================
-    chart.subscribeCrosshairMove(param => {
-      if (!param || !param.seriesPrices) return
-      const price = param.seriesPrices.get(candleSeries)
-      if (!price) return
-      dragRef.current = { ...dragRef.current, price }
-    })
-
-    // ===============================
-    // CLICK CANCEL
-    // ===============================
-    chart.subscribeClick(param => {
-      if (!param || !param.seriesPrices) return
-      const price = param.seriesPrices.get(candleSeries)
-
-      const hit = orders.find(o => Math.abs(o.price - price) < 1)
-      if (hit) cancelOrder(hit.id)
-    })
-
-    const el = chartRef.current
-
-    // ===============================
-    // DRAG SYSTEM
-    // ===============================
-    el.addEventListener("mousedown", () => {
-      const price = dragRef.current?.price
-      if (!price) return
-
-      const hitEntry = orders.find(o => Math.abs(o.price - price) < 1)
-      const hitTP = tpLines.find(tp => Math.abs(tp.price - price) < 1)
-      const hitSL = slLines.find(sl => Math.abs(sl.price - price) < 1)
-
-      if (hitEntry) dragRef.current = { type: "ENTRY", id: hitEntry.id, price }
-      else if (hitTP) dragRef.current = { type: "TP", id: hitTP.id, price }
-      else if (hitSL) dragRef.current = { type: "SL", id: hitSL.id, price }
-      else dragRef.current = null
-    })
-
-    el.addEventListener("mousemove", () => {
-      if (!dragRef.current?.type) return
-      const price = dragRef.current.price
-
-      if (dragRef.current.type === "ENTRY") updateEntry(dragRef.current.id, price)
-      if (dragRef.current.type === "TP") updateTP(dragRef.current.id, price)
-      if (dragRef.current.type === "SL") updateSL(dragRef.current.id, price)
-    })
-
-    el.addEventListener("mouseup", () => {
-      dragRef.current = null
-    })
 
     return () => {
       ws.close()
       chart.remove()
     }
-  }, [])
+  }, [pair, timeframe])
 
   // ===============================
-  // DRAW LINES + PNL + LIQ
+  // DRAW LINES
   // ===============================
   useEffect(() => {
-    const series = candleSeriesRef.current
-    if (!series) return
+    const s = candleSeriesRef.current
+    if (!s) return
 
-    const calcPNL = (entry, current, side, amount = 1) => {
-      return side === "BUY"
-        ? (current - entry) * amount
-        : (entry - current) * amount
-    }
+    const pnl = (entry, price, side, amt = 1) =>
+      side === "BUY" ? (price - entry) * amt : (entry - price) * amt
 
-    const calcLiq = (entry, leverage, side) => {
-      return side === "BUY"
-        ? entry * (1 - 1 / leverage)
-        : entry * (1 + 1 / leverage)
-    }
+    const liq = (entry, lev, side) =>
+      side === "BUY" ? entry * (1 - 1 / lev) : entry * (1 + 1 / lev)
 
-    orders.forEach(order => {
-      const key = "entry_" + order.id
-      const pnl = calcPNL(order.price, livePriceRef.current, order.side, order.amount)
+    orders.forEach(o => {
+      const key = "e_" + o.id
+      const p = pnl(o.price, livePriceRef.current, o.side, o.amount)
 
       if (!linesRef.current[key]) {
-        linesRef.current[key] = series.createPriceLine({
-          price: order.price,
-          lineWidth: 2,
-          title: ""
-        })
+        linesRef.current[key] = s.createPriceLine({ price: o.price })
       }
 
       linesRef.current[key].applyOptions({
-        price: order.price,
-        color: pnl > 0 ? "#00ff88" : pnl < 0 ? "#ff4444" : "#ffaa00",
-        title: `ENTRY ${order.side} | PNL: ${pnl.toFixed(2)}`
+        price: o.price,
+        color: p > 0 ? "#00ff88" : "#ff4444",
+        title: `ENTRY ${o.side} | ${p.toFixed(2)}`
       })
 
-      // LIQUIDATION
-      const liq = calcLiq(order.price, 10, order.side)
-      const liqKey = "liq_" + order.id
+      const lk = "l_" + o.id
+      const lp = liq(o.price, 10, o.side)
 
-      if (!linesRef.current[liqKey]) {
-        linesRef.current[liqKey] = series.createPriceLine({
-          price: liq,
+      if (!linesRef.current[lk]) {
+        linesRef.current[lk] = s.createPriceLine({
+          price: lp,
           color: "#ff8800",
-          lineWidth: 1,
           title: "LIQ"
         })
       }
 
-      linesRef.current[liqKey].applyOptions({ price: liq })
+      linesRef.current[lk].applyOptions({ price: lp })
     })
 
     tpLines.forEach(tp => {
-      const key = "tp_" + tp.id
-
-      if (!linesRef.current[key]) {
-        linesRef.current[key] = series.createPriceLine({
+      const k = "tp_" + tp.id
+      if (!linesRef.current[k]) {
+        linesRef.current[k] = s.createPriceLine({
           price: tp.price,
           color: "#00ff88",
           lineStyle: 2,
           title: "TP"
         })
       }
-
-      linesRef.current[key].applyOptions({ price: tp.price })
+      linesRef.current[k].applyOptions({ price: tp.price })
     })
 
     slLines.forEach(sl => {
-      const key = "sl_" + sl.id
-
-      if (!linesRef.current[key]) {
-        linesRef.current[key] = series.createPriceLine({
+      const k = "sl_" + sl.id
+      if (!linesRef.current[k]) {
+        linesRef.current[k] = s.createPriceLine({
           price: sl.price,
           color: "#ff0000",
           lineStyle: 2,
           title: "SL"
         })
       }
-
-      linesRef.current[key].applyOptions({ price: sl.price })
+      linesRef.current[k].applyOptions({ price: sl.price })
     })
 
   }, [orders, tpLines, slLines])
