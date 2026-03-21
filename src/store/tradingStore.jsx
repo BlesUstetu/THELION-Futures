@@ -3,30 +3,23 @@ import React, { createContext, useContext, useState } from "react"
 const TradingContext = createContext()
 
 export const TradingProvider = ({ children }) => {
-  const [pair, setPair] = useState("BINANCE:BTCUSDT")
+  const [pair, setPair] = useState("BTCUSDT")
 
   const [orders, setOrders] = useState([])
   const [tpLines, setTpLines] = useState([])
   const [slLines, setSlLines] = useState([])
-  const [livePrice, setLivePrice] = useState(null)
 
   // ===============================
-  // ORDER
+  // PLACE ORDER
   // ===============================
-  const placeOrder = ({ side, price, amount, leverage }) => {
+  const placeOrder = ({ side, price, amount }) => {
     const id = Date.now()
 
-    const order = {
-      id,
-      side,
-      price,
-      amount,
-      leverage
-    }
+    const order = { id, side, price, amount }
 
     setOrders(prev => [...prev, order])
 
-    // auto TP SL (dummy logic)
+    // auto TP SL
     const tp = {
       id,
       price: side === "BUY" ? price * 1.02 : price * 0.98
@@ -59,19 +52,23 @@ export const TradingProvider = ({ children }) => {
     )
   }
 
+  const updateEntry = (id, price) => {
+    setOrders(prev =>
+      prev.map(o => o.id === id ? { ...o, price } : o)
+    )
+  }
+
   return (
     <TradingContext.Provider value={{
       pair,
-      setPair,
       orders,
       tpLines,
       slLines,
-      livePrice,
-      setLivePrice,
       placeOrder,
       cancelOrder,
       updateTP,
-      updateSL
+      updateSL,
+      updateEntry
     }}>
       {children}
     </TradingContext.Provider>
