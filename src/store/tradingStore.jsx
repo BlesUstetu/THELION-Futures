@@ -75,6 +75,13 @@ export const TradingProvider = ({ children }) => {
   // LIVE PRICE (WEBSOCKET)
   // ===============================
   useEffect(() => {
+     // TEST ORDER (debug)
+     setTimeout(() => {
+       placeOrder({
+         price: 70600,
+         side: "BUY"
+       })
+     }, 1500)
     const ws = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@trade")
 
     ws.onmessage = (event) => {
