@@ -6,24 +6,19 @@ export default function OrderPanel() {
 
   const [price, setPrice] = useState("")
   const [amount, setAmount] = useState("")
-  const [leverage, setLeverage] = useState(10)
 
   const handleOrder = (side) => {
-    const p = parseFloat(price)
-    const a = parseFloat(amount)
-
-    if (!p || !a) return alert("Isi price & amount")
+    if (!price || !amount) return
 
     placeOrder({
       side,
-      price: p,
-      amount: a,
-      leverage
+      price: parseFloat(price),
+      amount: parseFloat(amount)
     })
   }
 
   return (
-    <div className="order-panel">
+    <div style={{ padding: 10 }}>
       <input
         placeholder="Price"
         value={price}
@@ -36,19 +31,8 @@ export default function OrderPanel() {
         onChange={e => setAmount(e.target.value)}
       />
 
-      <input
-        placeholder="Leverage"
-        value={leverage}
-        onChange={e => setLeverage(e.target.value)}
-      />
-
-      <button onClick={() => handleOrder("BUY")}>
-        BUY
-      </button>
-
-      <button onClick={() => handleOrder("SELL")}>
-        SELL
-      </button>
+      <button onClick={() => handleOrder("BUY")}>BUY</button>
+      <button onClick={() => handleOrder("SELL")}>SELL</button>
     </div>
   )
 }
