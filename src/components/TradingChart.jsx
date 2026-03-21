@@ -1,3 +1,4 @@
+console.log("🔥 TradingChart LOADED")
 import { useEffect, useRef } from "react"
 import { useTrading } from "../store/tradingStore"
 
