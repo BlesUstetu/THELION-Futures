@@ -7,16 +7,6 @@ export default function OrderPanel() {
   const [price, setPrice] = useState("")
   const [amount, setAmount] = useState("")
 
-  const handleOrder = (side) => {
-    if (!price || !amount) return
-
-    placeOrder({
-      side,
-      price: parseFloat(price),
-      amount: parseFloat(amount)
-    })
-  }
-
   return (
     <div style={{ padding: 10 }}>
       <input
@@ -31,8 +21,13 @@ export default function OrderPanel() {
         onChange={e => setAmount(e.target.value)}
       />
 
-      <button onClick={() => handleOrder("BUY")}>BUY</button>
-      <button onClick={() => handleOrder("SELL")}>SELL</button>
+      <button onClick={() => placeOrder({ side: "BUY", price: +price, amount: +amount })}>
+        BUY
+      </button>
+
+      <button onClick={() => placeOrder({ side: "SELL", price: +price, amount: +amount })}>
+        SELL
+      </button>
     </div>
   )
 }
