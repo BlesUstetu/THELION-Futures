@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from "react"
 const TradingContext = createContext()
 
 export const TradingProvider = ({ children }) => {
+
   // ===============================
   // STATE
   // ===============================
@@ -21,9 +22,9 @@ export const TradingProvider = ({ children }) => {
   const placeOrder = ({ price, side }) => {
     const id = Date.now()
 
-    const tpPercent = 0.02   // 2%
-    const slPercent = 0.01   // 1%
-    const liqPercent = 0.1   // simulasi liquidation
+    const tpPercent = 0.02
+    const slPercent = 0.01
+    const liqPercent = 0.1
 
     let tp, sl, liq
 
@@ -56,36 +57,25 @@ export const TradingProvider = ({ children }) => {
   }
 
   // ===============================
-  // UPDATE TP (DRAG LINE)
+  // UPDATE TP / SL (DRAG)
   // ===============================
-  const updateTP = (id, newPrice) => {
+  const updateTP = (id, price) => {
     setTpLines(prev =>
-      prev.map(tp =>
-        tp.id === id ? { ...tp, price: newPrice } : tp
-      )
+      prev.map(tp => tp.id === id ? { ...tp, price } : tp)
     )
   }
 
-  // ===============================
-  // UPDATE SL (DRAG LINE)
-  // ===============================
-  const updateSL = (id, newPrice) => {
+  const updateSL = (id, price) => {
     setSlLines(prev =>
-      prev.map(sl =>
-        sl.id === id ? { ...sl, price: newPrice } : sl
-      )
+      prev.map(sl => sl.id === id ? { ...sl, price } : sl)
     )
   }
 
   // ===============================
-  // LIVE PRICE (BINANCE WS)
+  // LIVE PRICE (WEBSOCKET)
   // ===============================
   useEffect(() => {
-    const symbol = "btcusdt" // default
-
-    const ws = new WebSocket(
-      `wss://stream.binance.com:9443/ws/${symbol}@trade`
-    )
+    const ws = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@trade")
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data)
@@ -93,27 +83,21 @@ export const TradingProvider = ({ children }) => {
     }
 
     ws.onerror = (err) => {
-      console.error("WebSocket error:", err)
+      console.error("WS Error:", err)
     }
 
-    return () => {
-      ws.close()
-    }
+    return () => ws.close()
   }, [])
 
   // ===============================
-  // CHANGE PAIR (OPTIONAL)
+  // CHANGE PAIR
   // ===============================
   const changePair = (newPair) => {
     setPair(newPair)
-
-    // NOTE:
-    // kalau mau advanced:
-    // → reconnect websocket sesuai pair
   }
 
   // ===============================
-  // EXPORT
+  // EXPORT CONTEXT
   // ===============================
   return (
     <TradingContext.Provider
@@ -141,6 +125,6 @@ export const TradingProvider = ({ children }) => {
 }
 
 // ===============================
-// HOOK
+// HOOK (WAJIB ADA)
 // ===============================
 export const useTrading = () => useContext(TradingContext)
