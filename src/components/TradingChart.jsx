@@ -1,13 +1,13 @@
 import { useEffect, useRef } from "react"
+import { createChart } from "lightweight-charts"
 import { useTrading } from "../store/tradingStore"
 
 export default function TradingChart() {
-  const chartContainerRef = useRef()
-  const widgetRef = useRef(null)
-  const shapesRef = useRef({})
+  const chartRef = useRef()
+  const candleSeriesRef = useRef()
+  const linesRef = useRef({})
 
   const {
-    pair,
     orders,
     tpLines,
     slLines,
@@ -17,102 +17,89 @@ export default function TradingChart() {
   } = useTrading()
 
   // ===============================
-  // INIT CHARTING LIBRARY
+  // INIT CHART
   // ===============================
   useEffect(() => {
-    if (widgetRef.current) return
-
-    const widget = new window.TradingView.widget({
-      symbol: pair,
-      interval: "1",
-      container: chartContainerRef.current,
-      library_path: "/charting_library/",
-      datafeed: new window.Datafeeds.UDFCompatibleDatafeed("/datafeeds"),
-      locale: "en",
-      autosize: true,
-      theme: "dark"
+    const chart = createChart(chartRef.current, {
+      width: chartRef.current.clientWidth,
+      height: 500,
+      layout: {
+        background: { color: "#0b0f14" },
+        textColor: "#ccc"
+      },
+      grid: {
+        vertLines: { color: "#1e222d" },
+        horzLines: { color: "#1e222d" }
+      }
     })
 
-    widget.onChartReady(() => {
-      console.log("✅ Charting Library READY")
+    const candleSeries = chart.addCandlestickSeries()
+    candleSeriesRef.current = candleSeries
 
-      widgetRef.current = widget
-    })
+    // dummy data
+    const data = Array.from({ length: 100 }, (_, i) => ({
+      time: i,
+      open: 100 + Math.random() * 10,
+      high: 110 + Math.random() * 10,
+      low: 90 + Math.random() * 10,
+      close: 100 + Math.random() * 10
+    }))
+
+    candleSeries.setData(data)
+
+    return () => chart.remove()
   }, [])
 
   // ===============================
   // DRAW ORDER LINES
   // ===============================
   useEffect(() => {
-    if (!widgetRef.current) return
+    const series = candleSeriesRef.current
+    if (!series) return
 
-    const chart = widgetRef.current.chart()
+    // CLEAR OLD
+    Object.values(linesRef.current).forEach(line => {
+      series.removePriceLine(line)
+    })
+    linesRef.current = {}
 
     // ENTRY
     orders.forEach(order => {
-      const key = "entry_" + order.id
+      const line = series.createPriceLine({
+        price: order.price,
+        color: order.side === "BUY" ? "#00ff88" : "#ff4444",
+        lineWidth: 2,
+        title: `ENTRY ${order.side}`
+      })
 
-      if (!shapesRef.current[key]) {
-        const line = chart
-          .createOrderLine()
-          .setPrice(order.price)
-          .setText(`ENTRY ${order.side}`)
-          .setQuantity(order.amount)
-
-        line.onCancel(() => cancelOrder(order.id))
-
-        shapesRef.current[key] = line
-      }
+      linesRef.current["entry_" + order.id] = line
     })
 
     // TP
     tpLines.forEach(tp => {
-      const key = "tp_" + tp.id
+      const line = series.createPriceLine({
+        price: tp.price,
+        color: "#00ff88",
+        lineStyle: 2,
+        title: "TP"
+      })
 
-      if (!shapesRef.current[key]) {
-        const line = chart
-          .createOrderLine()
-          .setPrice(tp.price)
-          .setText("TP")
-          .setLineColor("#00ff88")
-
-        line.onMove(() => {
-          updateTP(tp.id, line.getPrice())
-        })
-
-        shapesRef.current[key] = line
-      } else {
-        shapesRef.current[key].setPrice(tp.price)
-      }
+      linesRef.current["tp_" + tp.id] = line
     })
 
     // SL
     slLines.forEach(sl => {
-      const key = "sl_" + sl.id
+      const line = series.createPriceLine({
+        price: sl.price,
+        color: "#ff0000",
+        lineStyle: 2,
+        title: "SL"
+      })
 
-      if (!shapesRef.current[key]) {
-        const line = chart
-          .createOrderLine()
-          .setPrice(sl.price)
-          .setText("SL")
-          .setLineColor("#ff0000")
-
-        line.onMove(() => {
-          updateSL(sl.id, line.getPrice())
-        })
-
-        shapesRef.current[key] = line
-      } else {
-        shapesRef.current[key].setPrice(sl.price)
-      }
+      linesRef.current["sl_" + sl.id] = line
     })
 
   }, [orders, tpLines, slLines])
 
-  return (
-    <div
-      ref={chartContainerRef}
-      style={{ height: "100%", width: "100%" }}
-    />
-  )
+  return <div ref={chartRef} style={{ width: "100%" }} />
 }
