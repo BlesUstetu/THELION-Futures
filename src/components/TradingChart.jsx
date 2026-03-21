@@ -1,10 +1,9 @@
-import React, { useEffect, useRef } from "react"
+import { useEffect, useRef } from "react"
 import { useTrading } from "../store/tradingStore"
 
 export default function TradingChart() {
   const chartRef = useRef(null)
   const widgetRef = useRef(null)
-  const tvChartRef = useRef(null)
   const shapesRef = useRef({})
 
   const {
@@ -12,178 +11,129 @@ export default function TradingChart() {
     orders,
     tpLines,
     slLines,
-    liquidationLines,
-    livePrice,
     cancelOrder,
     updateTP,
-    updateSL
+    updateSL,
+    livePrice,
+    setLivePrice
   } = useTrading()
 
   // ===============================
-  // INIT CHART (ONLY ONCE)
+  // INIT CHART
   // ===============================
   useEffect(() => {
     if (widgetRef.current) return
 
-    const widget = new window.TradingView.widget({
-      symbol: pair || "BINANCE:BTCUSDT",
-      interval: "15",
-      container_id: "tv_chart",
-      autosize: true,
-      theme: "dark",
-      style: "1",
-      locale: "en",
-      enable_publishing: false,
-      hide_side_toolbar: false,
-      allow_symbol_change: true,
-    })
-
-    widgetRef.current = widget
-
-    widget.onChartReady(() => {
-      tvChartRef.current = widget.chart()
-    })
-
-    return () => {
-      widgetRef.current?.remove()
-      widgetRef.current = null
+    const script = document.createElement("script")
+    script.src = "https://s3.tradingview.com/tv.js"
+    script.onload = () => {
+      widgetRef.current = new window.TradingView.widget({
+        symbol: pair,
+        interval: "1",
+        container_id: "tv_chart",
+        autosize: true,
+        theme: "dark"
+      })
     }
+
+    document.body.appendChild(script)
   }, [])
 
   // ===============================
-  // UPDATE SYMBOL (NO RECREATE)
+  // SIMULATE LIVE PRICE
   // ===============================
   useEffect(() => {
-    if (!tvChartRef.current) return
-    tvChartRef.current.setSymbol(pair, () => {})
-  }, [pair])
+    const interval = setInterval(() => {
+      setLivePrice(100000 + Math.random() * 1000)
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   // ===============================
-  // DRAW ALL LINES
+  // DRAW LINES (NO FLICKER)
   // ===============================
   useEffect(() => {
-    if (!tvChartRef.current) return
+    if (!widgetRef.current) return
 
-    const chart = tvChartRef.current
+    widgetRef.current.onChartReady(() => {
+      const chart = widgetRef.current.chart()
 
-    // CLEAR OLD SHAPES
-    Object.values(shapesRef.current).forEach(shape => {
-      try {
-        chart.removeEntity(shape)
-      } catch {}
-    })
+      // ENTRY
+      orders.forEach(order => {
+        if (!shapesRef.current["entry_" + order.id]) {
+          const shape = chart.createShape(
+            { price: order.price },
+            {
+              shape: "horizontal_line",
+              text: `ENTRY ${order.side}`,
+              lock: false
+            }
+          )
 
-    shapesRef.current = {}
+          shape.onClick(() => cancelOrder(order.id))
 
-    // ================= ENTRY
-    orders.forEach(order => {
-      const shape = chart.createShape(
-        { price: order.price },
-        {
-          shape: "horizontal_line",
-          text: `ENTRY ${order.side}`,
-          lock: false,
-          overrides: {
-            linecolor: order.side === "BUY" ? "#00ff88" : "#ff3b3b",
-            linewidth: 2,
-          }
+          shapesRef.current["entry_" + order.id] = shape
         }
-      )
-
-      shapesRef.current[`order_${order.id}`] = shape
-
-      // CANCEL ON CLICK
-      shape.onClick(() => cancelOrder(order.id))
-    })
-
-    // ================= TP
-    tpLines.forEach(tp => {
-      const shape = chart.createShape(
-        { price: tp.price },
-        {
-          shape: "horizontal_line",
-          text: "TP",
-          lock: false,
-          overrides: {
-            linecolor: "#00c3ff",
-            linestyle: 2,
-          }
-        }
-      )
-
-      shapesRef.current[`tp_${tp.id}`] = shape
-
-      shape.onMove(() => {
-        const price = shape.getPrice()
-        updateTP(tp.id, price)
       })
-    })
 
-    // ================= SL
-    slLines.forEach(sl => {
-      const shape = chart.createShape(
-        { price: sl.price },
-        {
-          shape: "horizontal_line",
-          text: "SL",
-          lock: false,
-          overrides: {
-            linecolor: "#ff0000",
-          }
+      // TP
+      tpLines.forEach(tp => {
+        if (!shapesRef.current["tp_" + tp.id]) {
+          const shape = chart.createShape(
+            { price: tp.price },
+            {
+              shape: "horizontal_line",
+              text: "TP",
+              overrides: { linecolor: "#00ff88" }
+            }
+          )
+
+          shape.onMove(() => {
+            updateTP(tp.id, shape.getPrice())
+          })
+
+          shapesRef.current["tp_" + tp.id] = shape
         }
-      )
-
-      shapesRef.current[`sl_${sl.id}`] = shape
-
-      shape.onMove(() => {
-        const price = shape.getPrice()
-        updateSL(sl.id, price)
       })
-    })
 
-    // ================= LIQUIDATION
-    liquidationLines.forEach(liq => {
-      const shape = chart.createShape(
-        { price: liq.price },
-        {
-          shape: "horizontal_line",
-          text: "LIQ",
-          lock: true,
-          overrides: {
-            linecolor: "#ff9900",
-            linestyle: 3,
-          }
+      // SL
+      slLines.forEach(sl => {
+        if (!shapesRef.current["sl_" + sl.id]) {
+          const shape = chart.createShape(
+            { price: sl.price },
+            {
+              shape: "horizontal_line",
+              text: "SL",
+              overrides: { linecolor: "#ff0000" }
+            }
+          )
+
+          shape.onMove(() => {
+            updateSL(sl.id, shape.getPrice())
+          })
+
+          shapesRef.current["sl_" + sl.id] = shape
         }
-      )
+      })
 
-      shapesRef.current[`liq_${liq.id}`] = shape
-    })
-
-    // ================= LIVE PRICE
-    if (livePrice) {
-      const shape = chart.createShape(
-        { price: livePrice },
-        {
-          shape: "horizontal_line",
-          text: "LIVE",
-          lock: true,
-          overrides: {
-            linecolor: "#ffffff",
-            linestyle: 1,
-          }
+      // LIVE PRICE
+      if (livePrice) {
+        if (!shapesRef.current.live) {
+          shapesRef.current.live = chart.createShape(
+            { price: livePrice },
+            {
+              shape: "horizontal_line",
+              text: "LIVE",
+              overrides: { linecolor: "#ffffff" }
+            }
+          )
+        } else {
+          shapesRef.current.live.setPrice(livePrice)
         }
-      )
+      }
+    })
+  }, [orders, tpLines, slLines, livePrice])
 
-      shapesRef.current["live"] = shape
-    }
-
-  }, [orders, tpLines, slLines, liquidationLines, livePrice])
-
-  return (
-    <div
-      id="tv_chart"
-      ref={chartRef}
-      style={{ width: "100%", height: "100%" }}
-    />
-  )
+  return <div id="tv_chart" style={{ height: "100%" }} />
 }
