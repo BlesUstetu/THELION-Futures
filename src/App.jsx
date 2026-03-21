@@ -1,32 +1,19 @@
 import StableChart from "./components/StableChart"
+import TradingChart from "./components/TradingChart"
 import OrderPanel from "./components/OrderPanel"
 import BottomTabs from "./components/BottomTabs"
 import { TradingProvider } from "./store/tradingStore"
 
-export default function App(){
+export default function App() {
+  return (
+    <div className="app">
+      <div className="chart">
+        <TradingChart />
+      </div>
 
-return(
-
-<TradingProvider>
-
-<div className="app">
-
-<div className="top">
-
-<div className="chart">
-<StableChart/>
-</div>
-
-<OrderPanel/>
-
-</div>
-
-<BottomTabs/>
-
-</div>
-
-</TradingProvider>
-
-)
-
+      <div className="panel">
+        <OrderPanel />
+      </div>
+    </div>
+  )
 }
