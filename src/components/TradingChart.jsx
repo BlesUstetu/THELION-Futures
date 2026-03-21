@@ -1,65 +1,118 @@
-console.log("🔥 TradingChart LOADED")
 import { useEffect, useRef } from "react"
 import { useTrading } from "../store/tradingStore"
 
 export default function TradingChart() {
-  const chartRef = useRef(null)
+  const chartContainerRef = useRef()
   const widgetRef = useRef(null)
+  const shapesRef = useRef({})
 
-  const { pair } = useTrading()
+  const {
+    pair,
+    orders,
+    tpLines,
+    slLines,
+    cancelOrder,
+    updateTP,
+    updateSL
+  } = useTrading()
 
+  // ===============================
+  // INIT CHARTING LIBRARY
+  // ===============================
   useEffect(() => {
-    const loadScript = () => {
-      return new Promise((resolve) => {
-        if (window.TradingView) {
-          resolve()
-          return
-        }
+    if (widgetRef.current) return
 
-        const script = document.createElement("script")
-        script.src = "https://s3.tradingview.com/tv.js"
-        script.onload = resolve
-        document.body.appendChild(script)
-      })
-    }
+    const widget = new window.TradingView.widget({
+      symbol: pair,
+      interval: "1",
+      container: chartContainerRef.current,
+      library_path: "/charting_library/",
+      datafeed: new window.Datafeeds.UDFCompatibleDatafeed("/datafeeds"),
+      locale: "en",
+      autosize: true,
+      theme: "dark"
+    })
 
-    const initChart = async () => {
-      await loadScript()
+    widget.onChartReady(() => {
+      console.log("✅ Charting Library READY")
 
-      // 🔥 tunggu DOM benar-benar ada
-      setTimeout(() => {
-        const container = document.getElementById("tv_chart")
-
-        if (!container) {
-          console.error("❌ tv_chart NOT FOUND")
-          return
-        }
-
-        widgetRef.current = new window.TradingView.widget({
-          symbol: pair,
-          interval: "1",
-          container_id: "tv_chart",
-          autosize: true,
-          theme: "dark"
-        })
-
-        widgetRef.current.onChartReady(() => {
-          console.log("✅ Chart READY (FIXED)")
-          chartRef.current = widgetRef.current.chart()
-        })
-      }, 300) // delay penting
-    }
-
-    initChart()
+      widgetRef.current = widget
+    })
   }, [])
+
+  // ===============================
+  // DRAW ORDER LINES
+  // ===============================
+  useEffect(() => {
+    if (!widgetRef.current) return
+
+    const chart = widgetRef.current.chart()
+
+    // ENTRY
+    orders.forEach(order => {
+      const key = "entry_" + order.id
+
+      if (!shapesRef.current[key]) {
+        const line = chart
+          .createOrderLine()
+          .setPrice(order.price)
+          .setText(`ENTRY ${order.side}`)
+          .setQuantity(order.amount)
+
+        line.onCancel(() => cancelOrder(order.id))
+
+        shapesRef.current[key] = line
+      }
+    })
+
+    // TP
+    tpLines.forEach(tp => {
+      const key = "tp_" + tp.id
+
+      if (!shapesRef.current[key]) {
+        const line = chart
+          .createOrderLine()
+          .setPrice(tp.price)
+          .setText("TP")
+          .setLineColor("#00ff88")
+
+        line.onMove(() => {
+          updateTP(tp.id, line.getPrice())
+        })
+
+        shapesRef.current[key] = line
+      } else {
+        shapesRef.current[key].setPrice(tp.price)
+      }
+    })
+
+    // SL
+    slLines.forEach(sl => {
+      const key = "sl_" + sl.id
+
+      if (!shapesRef.current[key]) {
+        const line = chart
+          .createOrderLine()
+          .setPrice(sl.price)
+          .setText("SL")
+          .setLineColor("#ff0000")
+
+        line.onMove(() => {
+          updateSL(sl.id, line.getPrice())
+        })
+
+        shapesRef.current[key] = line
+      } else {
+        shapesRef.current[key].setPrice(sl.price)
+      }
+    })
+
+  }, [orders, tpLines, slLines])
 
   return (
     <div
-      id="tv_chart"
-      style={{
-        width: "100%",
-        height: "600px", // ⚠️ WAJIB ADA HEIGHT
-      }}
+      ref={chartContainerRef}
+      style={{ height: "100%", width: "100%" }}
     />
   )
 }
