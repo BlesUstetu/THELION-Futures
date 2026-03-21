@@ -1,64 +1,52 @@
-import React, { createContext, useContext, useState, useEffect } from "react"
+import React, { createContext, useContext, useState } from "react"
 
 const TradingContext = createContext()
 
 export const TradingProvider = ({ children }) => {
-
-  // ===============================
-  // STATE
-  // ===============================
   const [pair, setPair] = useState("BINANCE:BTCUSDT")
 
   const [orders, setOrders] = useState([])
   const [tpLines, setTpLines] = useState([])
   const [slLines, setSlLines] = useState([])
-  const [liquidationLines, setLiquidationLines] = useState([])
-
   const [livePrice, setLivePrice] = useState(null)
 
   // ===============================
-  // PLACE ORDER
+  // ORDER
   // ===============================
-  const placeOrder = ({ price, side }) => {
+  const placeOrder = ({ side, price, amount, leverage }) => {
     const id = Date.now()
 
-    const tpPercent = 0.02
-    const slPercent = 0.01
-    const liqPercent = 0.1
-
-    let tp, sl, liq
-
-    if (side === "BUY") {
-      tp = price * (1 + tpPercent)
-      sl = price * (1 - slPercent)
-      liq = price * (1 - liqPercent)
-    } else {
-      tp = price * (1 - tpPercent)
-      sl = price * (1 + slPercent)
-      liq = price * (1 + liqPercent)
+    const order = {
+      id,
+      side,
+      price,
+      amount,
+      leverage
     }
 
-    const order = { id, price, side }
-
     setOrders(prev => [...prev, order])
-    setTpLines(prev => [...prev, { id, price: tp }])
-    setSlLines(prev => [...prev, { id, price: sl }])
-    setLiquidationLines(prev => [...prev, { id, price: liq }])
+
+    // auto TP SL (dummy logic)
+    const tp = {
+      id,
+      price: side === "BUY" ? price * 1.02 : price * 0.98
+    }
+
+    const sl = {
+      id,
+      price: side === "BUY" ? price * 0.98 : price * 1.02
+    }
+
+    setTpLines(prev => [...prev, tp])
+    setSlLines(prev => [...prev, sl])
   }
 
-  // ===============================
-  // CANCEL ORDER
-  // ===============================
   const cancelOrder = (id) => {
     setOrders(prev => prev.filter(o => o.id !== id))
-    setTpLines(prev => prev.filter(tp => tp.id !== id))
-    setSlLines(prev => prev.filter(sl => sl.id !== id))
-    setLiquidationLines(prev => prev.filter(liq => liq.id !== id))
+    setTpLines(prev => prev.filter(o => o.id !== id))
+    setSlLines(prev => prev.filter(o => o.id !== id))
   }
 
-  // ===============================
-  // UPDATE TP / SL (DRAG)
-  // ===============================
   const updateTP = (id, price) => {
     setTpLines(prev =>
       prev.map(tp => tp.id === id ? { ...tp, price } : tp)
@@ -71,67 +59,23 @@ export const TradingProvider = ({ children }) => {
     )
   }
 
-  // ===============================
-  // LIVE PRICE (WEBSOCKET)
-  // ===============================
-  useEffect(() => {
-     // TEST ORDER (debug)
-     setTimeout(() => {
-       placeOrder({
-         price: 70600,
-         side: "BUY"
-       })
-     }, 1500)
-    const ws = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@trade")
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      setLivePrice(parseFloat(data.p))
-    }
-
-    ws.onerror = (err) => {
-      console.error("WS Error:", err)
-    }
-
-    return () => ws.close()
-  }, [])
-
-  // ===============================
-  // CHANGE PAIR
-  // ===============================
-  const changePair = (newPair) => {
-    setPair(newPair)
-  }
-
-  // ===============================
-  // EXPORT CONTEXT
-  // ===============================
   return (
-    <TradingContext.Provider
-      value={{
-        pair,
-        setPair: changePair,
-
-        orders,
-        tpLines,
-        slLines,
-        liquidationLines,
-
-        livePrice,
-
-        placeOrder,
-        cancelOrder,
-
-        updateTP,
-        updateSL,
-      }}
-    >
+    <TradingContext.Provider value={{
+      pair,
+      setPair,
+      orders,
+      tpLines,
+      slLines,
+      livePrice,
+      setLivePrice,
+      placeOrder,
+      cancelOrder,
+      updateTP,
+      updateSL
+    }}>
       {children}
     </TradingContext.Provider>
   )
 }
 
-// ===============================
-// HOOK (WAJIB ADA)
-// ===============================
 export const useTrading = () => useContext(TradingContext)
