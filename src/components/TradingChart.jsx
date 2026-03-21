@@ -2,9 +2,8 @@ import { useEffect, useRef } from "react"
 import { useTrading } from "../store/tradingStore"
 
 export default function TradingChart() {
-  const containerRef = useRef(null)
-  const widgetRef = useRef(null)
   const chartRef = useRef(null)
+  const widgetRef = useRef(null)
   const shapesRef = useRef({})
 
   const {
@@ -20,13 +19,13 @@ export default function TradingChart() {
   } = useTrading()
 
   // ===============================
-  // INIT CHART (ONLY ONCE)
+  // INIT CHART (FIX)
   // ===============================
   useEffect(() => {
     if (widgetRef.current) return
 
-    const initChart = () => {
-      widgetRef.current = new window.TradingView.widget({
+    const init = () => {
+      const widget = new window.TradingView.widget({
         symbol: pair,
         interval: "1",
         container_id: "tv_chart",
@@ -34,24 +33,26 @@ export default function TradingChart() {
         theme: "dark"
       })
 
-      widgetRef.current.onChartReady(() => {
-        chartRef.current = widgetRef.current.chart()
-        console.log("✅ Chart Ready")
+      widget.onChartReady(() => {
+        console.log("✅ Chart READY")
+        chartRef.current = widget.chart()
       })
+
+      widgetRef.current = widget
     }
 
     if (!window.TradingView) {
       const script = document.createElement("script")
       script.src = "https://s3.tradingview.com/tv.js"
-      script.onload = initChart
+      script.onload = init
       document.body.appendChild(script)
     } else {
-      initChart()
+      init()
     }
   }, [])
 
   // ===============================
-  // LIVE PRICE SIMULATION
+  // SIMULASI LIVE PRICE
   // ===============================
   useEffect(() => {
     const i = setInterval(() => {
@@ -61,14 +62,14 @@ export default function TradingChart() {
   }, [])
 
   // ===============================
-  // SYNC CHART WITH STATE (CORE)
+  // CONNECT ORDER → CHART
   // ===============================
   useEffect(() => {
     if (!chartRef.current) return
 
     const chart = chartRef.current
 
-    // ===== ENTRY =====
+    // ENTRY
     orders.forEach(order => {
       const key = "entry_" + order.id
 
@@ -77,31 +78,16 @@ export default function TradingChart() {
           { price: order.price },
           {
             shape: "horizontal_line",
-            text: `ENTRY ${order.side}`,
-            lock: false
+            text: `ENTRY ${order.side}`
           }
         )
 
-        shape.onClick(() => {
-          cancelOrder(order.id)
-        })
-
+        shape.onClick(() => cancelOrder(order.id))
         shapesRef.current[key] = shape
       }
     })
 
-    // ===== REMOVE OLD ENTRY =====
-    Object.keys(shapesRef.current).forEach(key => {
-      if (key.startsWith("entry_")) {
-        const id = key.replace("entry_", "")
-        if (!orders.find(o => o.id.toString() === id)) {
-          chart.removeEntity(shapesRef.current[key])
-          delete shapesRef.current[key]
-        }
-      }
-    })
-
-    // ===== TP =====
+    // TP
     tpLines.forEach(tp => {
       const key = "tp_" + tp.id
 
@@ -125,7 +111,7 @@ export default function TradingChart() {
       }
     })
 
-    // ===== SL =====
+    // SL
     slLines.forEach(sl => {
       const key = "sl_" + sl.id
 
@@ -149,7 +135,7 @@ export default function TradingChart() {
       }
     })
 
-    // ===== LIVE PRICE =====
+    // LIVE PRICE
     if (livePrice) {
       if (!shapesRef.current.live) {
         shapesRef.current.live = chart.createShape(
@@ -167,11 +153,5 @@ export default function TradingChart() {
 
   }, [orders, tpLines, slLines, livePrice])
 
-  return (
-    <div
-      id="tv_chart"
-      ref={containerRef}
-      style={{ height: "100%", width: "100%" }}
-    />
-  )
+  return <div id="tv_chart" style={{ height: "100%" }} />
 }
