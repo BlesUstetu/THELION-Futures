@@ -1,3 +1,4 @@
+console.log("🔥 App LOADED")
 import StableChart from "./components/StableChart"
 import TradingChart from "./components/TradingChart"
 import OrderPanel from "./components/OrderPanel"
