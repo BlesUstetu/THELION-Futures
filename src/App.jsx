@@ -6,14 +6,16 @@ import { TradingProvider } from "./store/tradingStore"
 
 export default function App() {
   return (
-    <div className="app">
-      <div className="chart">
-        <TradingChart />
-      </div>
+    <TradingProvider>
+      <div className="app">
+        <div className="chart">
+          <TradingChart />
+        </div>
 
-      <div className="panel">
-        <OrderPanel />
+        <div className="panel">
+          <OrderPanel />
+        </div>
       </div>
-    </div>
+    </TradingProvider>
   )
 }
