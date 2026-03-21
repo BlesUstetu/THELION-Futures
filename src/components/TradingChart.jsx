@@ -7,7 +7,7 @@ export default function TradingChart() {
   const candleSeriesRef = useRef()
   const linesRef = useRef({})
   const dragRef = useRef(null)
-  const livePriceRef = useRef(100)
+  const livePriceRef = useRef(0)
 
   const {
     orders,
@@ -43,31 +43,37 @@ export default function TradingChart() {
 
     const data = Array.from({ length: 100 }, (_, i) => ({
       time: now - (100 - i) * 60,
-      open: 100 + Math.random() * 10,
-      high: 110 + Math.random() * 10,
-      low: 90 + Math.random() * 10,
-      close: 100 + Math.random() * 10
+      open: 100,
+      high: 105,
+      low: 95,
+      close: 100
     }))
 
     candleSeries.setData(data)
 
-    // LIVE PRICE SIMULATION
-    setInterval(() => {
-      livePriceRef.current += (Math.random() - 0.5) * 0.5
-    }, 500)
+    // ===============================
+    // BINANCE WEBSOCKET
+    // ===============================
+    const ws = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@trade")
 
-    // UPDATE CANDLE (REALTIME FEEL)
-    const live = setInterval(() => {
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data)
+      const price = parseFloat(data.p)
+
+      livePriceRef.current = price
+
       candleSeries.update({
         time: Math.floor(Date.now() / 1000),
-        open: livePriceRef.current,
-        high: livePriceRef.current,
-        low: livePriceRef.current,
-        close: livePriceRef.current
+        open: price,
+        high: price,
+        low: price,
+        close: price
       })
-    }, 1000)
+    }
 
+    // ===============================
     // CROSSHAIR (DRAG)
+    // ===============================
     chart.subscribeCrosshairMove(param => {
       if (!param || !param.seriesPrices) return
       const price = param.seriesPrices.get(candleSeries)
@@ -75,25 +81,29 @@ export default function TradingChart() {
       dragRef.current = { ...dragRef.current, price }
     })
 
+    // ===============================
     // CLICK CANCEL
+    // ===============================
     chart.subscribeClick(param => {
       if (!param || !param.seriesPrices) return
       const price = param.seriesPrices.get(candleSeries)
 
-      const hit = orders.find(o => Math.abs(o.price - price) < 0.5)
+      const hit = orders.find(o => Math.abs(o.price - price) < 1)
       if (hit) cancelOrder(hit.id)
     })
 
     const el = chartRef.current
 
-    // MOUSEDOWN
+    // ===============================
+    // DRAG SYSTEM
+    // ===============================
     el.addEventListener("mousedown", () => {
       const price = dragRef.current?.price
       if (!price) return
 
-      const hitEntry = orders.find(o => Math.abs(o.price - price) < 0.5)
-      const hitTP = tpLines.find(tp => Math.abs(tp.price - price) < 0.5)
-      const hitSL = slLines.find(sl => Math.abs(sl.price - price) < 0.5)
+      const hitEntry = orders.find(o => Math.abs(o.price - price) < 1)
+      const hitTP = tpLines.find(tp => Math.abs(tp.price - price) < 1)
+      const hitSL = slLines.find(sl => Math.abs(sl.price - price) < 1)
 
       if (hitEntry) dragRef.current = { type: "ENTRY", id: hitEntry.id, price }
       else if (hitTP) dragRef.current = { type: "TP", id: hitTP.id, price }
@@ -101,7 +111,6 @@ export default function TradingChart() {
       else dragRef.current = null
     })
 
-    // MOUSEMOVE
     el.addEventListener("mousemove", () => {
       if (!dragRef.current?.type) return
       const price = dragRef.current.price
@@ -111,19 +120,18 @@ export default function TradingChart() {
       if (dragRef.current.type === "SL") updateSL(dragRef.current.id, price)
     })
 
-    // MOUSEUP
     el.addEventListener("mouseup", () => {
       dragRef.current = null
     })
 
     return () => {
-      clearInterval(live)
+      ws.close()
       chart.remove()
     }
   }, [])
 
   // ===============================
-  // DRAW LINES (NO FLICKER)
+  // DRAW LINES + PNL + LIQ
   // ===============================
   useEffect(() => {
     const series = candleSeriesRef.current
@@ -135,14 +143,19 @@ export default function TradingChart() {
         : (entry - current) * amount
     }
 
+    const calcLiq = (entry, leverage, side) => {
+      return side === "BUY"
+        ? entry * (1 - 1 / leverage)
+        : entry * (1 + 1 / leverage)
+    }
+
     orders.forEach(order => {
       const key = "entry_" + order.id
-      const pnl = calcPNL(order.price, livePriceRef.current, order.side)
+      const pnl = calcPNL(order.price, livePriceRef.current, order.side, order.amount)
 
       if (!linesRef.current[key]) {
         linesRef.current[key] = series.createPriceLine({
           price: order.price,
-          color: "#ffaa00",
           lineWidth: 2,
           title: ""
         })
@@ -150,9 +163,24 @@ export default function TradingChart() {
 
       linesRef.current[key].applyOptions({
         price: order.price,
-        color: pnl >= 0 ? "#00ff88" : "#ff4444",
+        color: pnl > 0 ? "#00ff88" : pnl < 0 ? "#ff4444" : "#ffaa00",
         title: `ENTRY ${order.side} | PNL: ${pnl.toFixed(2)}`
       })
+
+      // LIQUIDATION
+      const liq = calcLiq(order.price, 10, order.side)
+      const liqKey = "liq_" + order.id
+
+      if (!linesRef.current[liqKey]) {
+        linesRef.current[liqKey] = series.createPriceLine({
+          price: liq,
+          color: "#ff8800",
+          lineWidth: 1,
+          title: "LIQ"
+        })
+      }
+
+      linesRef.current[liqKey].applyOptions({ price: liq })
     })
 
     tpLines.forEach(tp => {
