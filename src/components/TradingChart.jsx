@@ -14,14 +14,9 @@ export default function TradingChart() {
   const emaValueRef = useRef(null)
   const gainsRef = useRef([])
   const lossesRef = useRef([])
+  const lastTimeRef = useRef(0)
 
-  const {
-    orders,
-    tpLines,
-    slLines,
-    pair,
-    timeframe
-  } = useTrading()
+  const { orders, tpLines, slLines, pair, timeframe } = useTrading()
 
   // ===============================
   // LOAD HISTORY
@@ -30,11 +25,10 @@ export default function TradingChart() {
     const res = await fetch(
       `https://api.binance.com/api/v3/klines?symbol=${pair.toUpperCase()}&interval=${timeframe}&limit=200`
     )
-
     const data = await res.json()
 
     return data.map(d => ({
-      time: d[0] / 1000,
+      time: Math.floor(d[0] / 1000),
       open: +d[1],
       high: +d[2],
       low: +d[3],
@@ -54,8 +48,8 @@ export default function TradingChart() {
     })
 
     const candle = chart.addCandlestickSeries()
-    const ema = chart.addLineSeries({ color: "#ffaa00" })
-    const rsi = chart.addLineSeries({ color: "#00aaff" })
+    const ema = chart.addLineSeries({ color: "#ffaa00", lineWidth: 2 })
+    const rsi = chart.addLineSeries({ color: "#00aaff", lineWidth: 1 })
 
     candleSeriesRef.current = candle
     emaSeriesRef.current = ema
@@ -66,15 +60,15 @@ export default function TradingChart() {
     const init = async () => {
       const history = await loadHistory()
 
+      if (!history || history.length === 0) return
+
       candle.setData(history)
       chart.timeScale().fitContent()
 
       const last = history[history.length - 1]
       livePriceRef.current = last.close
+      lastTimeRef.current = last.time
 
-      // ===============================
-      // WEBSOCKET REALTIME
-      // ===============================
       ws = new WebSocket(
         `wss://stream.binance.com:9443/ws/${pair}@kline_${timeframe}`
       )
@@ -82,10 +76,11 @@ export default function TradingChart() {
       ws.onmessage = (e) => {
         const k = JSON.parse(e.data).k
 
+        const time = Math.floor(k.t / 1000)
         const price = +k.c
 
         const candleData = {
-          time: k.t / 1000,
+          time,
           open: +k.o,
           high: +k.h,
           low: +k.l,
@@ -93,17 +88,26 @@ export default function TradingChart() {
         }
 
         livePriceRef.current = price
-        candle.update(candleData)
 
+        // 🔥 FIX ANTI HILANG CANDLE
+        if (time >= lastTimeRef.current) {
+          candle.update(candleData)
+          lastTimeRef.current = time
+        }
+
+        // ===============================
         // EMA
+        // ===============================
         const m = 2 / (14 + 1)
         emaValueRef.current = emaValueRef.current
           ? (price - emaValueRef.current) * m + emaValueRef.current
           : price
 
-        ema.update({ time: candleData.time, value: emaValueRef.current })
+        ema.update({ time, value: emaValueRef.current })
 
+        // ===============================
         // RSI
+        // ===============================
         const prev = livePriceRef.prev || price
         const diff = price - prev
 
@@ -121,7 +125,7 @@ export default function TradingChart() {
         const rs = avgGain / (avgLoss || 1)
         const rsiVal = 100 - (100 / (1 + rs))
 
-        rsi.update({ time: candleData.time, value: rsiVal })
+        rsi.update({ time, value: rsiVal })
 
         livePriceRef.prev = price
       }
@@ -136,7 +140,7 @@ export default function TradingChart() {
   }, [pair, timeframe])
 
   // ===============================
-  // DRAW LINES
+  // DRAW TRADING LINES
   // ===============================
   useEffect(() => {
     const s = candleSeriesRef.current
@@ -162,25 +166,25 @@ export default function TradingChart() {
         title: `ENTRY ${o.side} | ${p.toFixed(2)}`
       })
 
-      const lk = "liq_" + o.id
-      const lp = liq(o.price, 10, o.side)
+      const liqKey = "liq_" + o.id
+      const liqPrice = liq(o.price, 10, o.side)
 
-      if (!linesRef.current[lk]) {
-        linesRef.current[lk] = s.createPriceLine({
-          price: lp,
+      if (!linesRef.current[liqKey]) {
+        linesRef.current[liqKey] = s.createPriceLine({
+          price: liqPrice,
           color: "#ff8800",
           title: "LIQ"
         })
       }
 
-      linesRef.current[lk].applyOptions({ price: lp })
+      linesRef.current[liqKey].applyOptions({ price: liqPrice })
     })
 
     tpLines.forEach(tp => {
-      const k = "tp_" + tp.id
+      const key = "tp_" + tp.id
 
-      if (!linesRef.current[k]) {
-        linesRef.current[k] = s.createPriceLine({
+      if (!linesRef.current[key]) {
+        linesRef.current[key] = s.createPriceLine({
           price: tp.price,
           color: "#00ff88",
           lineStyle: 2,
@@ -188,14 +192,14 @@ export default function TradingChart() {
         })
       }
 
-      linesRef.current[k].applyOptions({ price: tp.price })
+      linesRef.current[key].applyOptions({ price: tp.price })
     })
 
     slLines.forEach(sl => {
-      const k = "sl_" + sl.id
+      const key = "sl_" + sl.id
 
-      if (!linesRef.current[k]) {
-        linesRef.current[k] = s.createPriceLine({
+      if (!linesRef.current[key]) {
+        linesRef.current[key] = s.createPriceLine({
           price: sl.price,
           color: "#ff0000",
           lineStyle: 2,
@@ -203,7 +207,7 @@ export default function TradingChart() {
         })
       }
 
-      linesRef.current[k].applyOptions({ price: sl.price })
+      linesRef.current[key].applyOptions({ price: sl.price })
     })
   }, [orders, tpLines, slLines])
 
