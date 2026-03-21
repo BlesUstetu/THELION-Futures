@@ -3,15 +3,10 @@ import React, { createContext, useContext, useState } from "react"
 const TradingContext = createContext()
 
 export const TradingProvider = ({ children }) => {
-  const [pair, setPair] = useState("BTCUSDT")
-
   const [orders, setOrders] = useState([])
   const [tpLines, setTpLines] = useState([])
   const [slLines, setSlLines] = useState([])
 
-  // ===============================
-  // PLACE ORDER
-  // ===============================
   const placeOrder = ({ side, price, amount }) => {
     const id = Date.now()
 
@@ -19,7 +14,6 @@ export const TradingProvider = ({ children }) => {
 
     setOrders(prev => [...prev, order])
 
-    // auto TP SL
     const tp = {
       id,
       price: side === "BUY" ? price * 1.02 : price * 0.98
@@ -60,7 +54,6 @@ export const TradingProvider = ({ children }) => {
 
   return (
     <TradingContext.Provider value={{
-      pair,
       orders,
       tpLines,
       slLines,
