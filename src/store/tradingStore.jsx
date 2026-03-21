@@ -7,9 +7,11 @@ export const TradingProvider = ({ children }) => {
   const [tpLines, setTpLines] = useState([])
   const [slLines, setSlLines] = useState([])
 
+  const [pair, setPair] = useState("btcusdt")
+  const [timeframe, setTimeframe] = useState("1m")
+
   const placeOrder = ({ side, price, amount }) => {
     const id = Date.now()
-
     const order = { id, side, price, amount }
 
     setOrders(prev => [...prev, order])
@@ -61,7 +63,11 @@ export const TradingProvider = ({ children }) => {
       cancelOrder,
       updateTP,
       updateSL,
-      updateEntry
+      updateEntry,
+      pair,
+      setPair,
+      timeframe,
+      setTimeframe
     }}>
       {children}
     </TradingContext.Provider>
