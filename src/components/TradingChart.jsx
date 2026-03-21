@@ -6,15 +6,11 @@ export default function TradingChart() {
   const chartRef = useRef()
   const candleSeriesRef = useRef()
   const emaSeriesRef = useRef()
-  const rsiSeriesRef = useRef()
 
   const linesRef = useRef({})
   const livePriceRef = useRef(0)
-
-  const emaValueRef = useRef(null)
-  const gainsRef = useRef([])
-  const lossesRef = useRef([])
   const lastTimeRef = useRef(0)
+  const emaValueRef = useRef(null)
 
   const { orders, tpLines, slLines, pair, timeframe } = useTrading()
 
@@ -43,17 +39,24 @@ export default function TradingChart() {
     const chart = createChart(chartRef.current, {
       width: chartRef.current.clientWidth,
       height: 500,
-      layout: { background: { color: "#0b0f14" }, textColor: "#ccc" },
-      grid: { vertLines: { color: "#1e222d" }, horzLines: { color: "#1e222d" } }
+      layout: {
+        background: { color: "#0b0f14" },
+        textColor: "#ccc"
+      },
+      grid: {
+        vertLines: { color: "#1e222d" },
+        horzLines: { color: "#1e222d" }
+      }
     })
 
     const candle = chart.addCandlestickSeries()
-    const ema = chart.addLineSeries({ color: "#ffaa00", lineWidth: 2 })
-    const rsi = chart.addLineSeries({ color: "#00aaff", lineWidth: 1 })
+    const ema = chart.addLineSeries({
+      color: "#ffaa00",
+      lineWidth: 2
+    })
 
     candleSeriesRef.current = candle
     emaSeriesRef.current = ema
-    rsiSeriesRef.current = rsi
 
     let ws
 
@@ -69,6 +72,9 @@ export default function TradingChart() {
       livePriceRef.current = last.close
       lastTimeRef.current = last.time
 
+      // ===============================
+      // WEBSOCKET
+      // ===============================
       ws = new WebSocket(
         `wss://stream.binance.com:9443/ws/${pair}@kline_${timeframe}`
       )
@@ -78,6 +84,9 @@ export default function TradingChart() {
 
         const time = Math.floor(k.t / 1000)
         const price = +k.c
+
+        // 🚨 FILTER BUG DATA
+        if (price < 1000) return
 
         const candleData = {
           time,
@@ -89,7 +98,7 @@ export default function TradingChart() {
 
         livePriceRef.current = price
 
-        // 🔥 FIX ANTI HILANG CANDLE
+        // ANTI HILANG CANDLE
         if (time >= lastTimeRef.current) {
           candle.update(candleData)
           lastTimeRef.current = time
@@ -99,35 +108,15 @@ export default function TradingChart() {
         // EMA
         // ===============================
         const m = 2 / (14 + 1)
+
         emaValueRef.current = emaValueRef.current
           ? (price - emaValueRef.current) * m + emaValueRef.current
           : price
 
-        ema.update({ time, value: emaValueRef.current })
-
-        // ===============================
-        // RSI
-        // ===============================
-        const prev = livePriceRef.prev || price
-        const diff = price - prev
-
-        gainsRef.current.push(Math.max(diff, 0))
-        lossesRef.current.push(Math.max(-diff, 0))
-
-        if (gainsRef.current.length > 14) gainsRef.current.shift()
-        if (lossesRef.current.length > 14) lossesRef.current.shift()
-
-        const avgGain =
-          gainsRef.current.reduce((a, b) => a + b, 0) / 14
-        const avgLoss =
-          lossesRef.current.reduce((a, b) => a + b, 0) / 14
-
-        const rs = avgGain / (avgLoss || 1)
-        const rsiVal = 100 - (100 / (1 + rs))
-
-        rsi.update({ time, value: rsiVal })
-
-        livePriceRef.prev = price
+        ema.update({
+          time,
+          value: emaValueRef.current
+        })
       }
     }
 
@@ -150,14 +139,18 @@ export default function TradingChart() {
       side === "BUY" ? (price - entry) * amt : (entry - price) * amt
 
     const liq = (entry, lev, side) =>
-      side === "BUY" ? entry * (1 - 1 / lev) : entry * (1 + 1 / lev)
+      side === "BUY"
+        ? entry * (1 - 1 / lev)
+        : entry * (1 + 1 / lev)
 
     orders.forEach(o => {
       const key = "entry_" + o.id
       const p = pnl(o.price, livePriceRef.current, o.side, o.amount)
 
       if (!linesRef.current[key]) {
-        linesRef.current[key] = s.createPriceLine({ price: o.price })
+        linesRef.current[key] = s.createPriceLine({
+          price: o.price
+        })
       }
 
       linesRef.current[key].applyOptions({
@@ -177,7 +170,9 @@ export default function TradingChart() {
         })
       }
 
-      linesRef.current[liqKey].applyOptions({ price: liqPrice })
+      linesRef.current[liqKey].applyOptions({
+        price: liqPrice
+      })
     })
 
     tpLines.forEach(tp => {
@@ -192,7 +187,9 @@ export default function TradingChart() {
         })
       }
 
-      linesRef.current[key].applyOptions({ price: tp.price })
+      linesRef.current[key].applyOptions({
+        price: tp.price
+      })
     })
 
     slLines.forEach(sl => {
@@ -207,7 +204,9 @@ export default function TradingChart() {
         })
       }
 
-      linesRef.current[key].applyOptions({ price: sl.price })
+      linesRef.current[key].applyOptions({
+        price: sl.price
+      })
     })
   }, [orders, tpLines, slLines])
 
