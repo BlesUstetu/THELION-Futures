@@ -1,72 +1,54 @@
-import { useState,useContext } from "react"
-import { TradingContext } from "../store/tradingStore.jsx"
+import { useState } from "react"
+import { useTrading } from "../store/tradingStore"
 
-export default function OrderPanel(){
+export default function OrderPanel() {
+  const { placeOrder } = useTrading()
 
-const { placeOrder } = useContext(TradingContext)
+  const [price, setPrice] = useState("")
+  const [amount, setAmount] = useState("")
+  const [leverage, setLeverage] = useState(10)
 
-const [price,setPrice] = useState("")
-const [amount,setAmount] = useState("")
-const [leverage,setLeverage] = useState(10)
+  const handleOrder = (side) => {
+    const p = parseFloat(price)
+    const a = parseFloat(amount)
 
-function submit(side){
+    if (!p || !a) return alert("Isi price & amount")
 
-const p = Number(price)
-const a = Number(amount)
+    placeOrder({
+      side,
+      price: p,
+      amount: a,
+      leverage
+    })
+  }
 
-if(!p || !a) return
+  return (
+    <div className="order-panel">
+      <input
+        placeholder="Price"
+        value={price}
+        onChange={e => setPrice(e.target.value)}
+      />
 
-placeOrder({
-pair:"BTCUSDT",
-side,
-price:p,
-amount:a,
-leverage
-})
+      <input
+        placeholder="Amount"
+        value={amount}
+        onChange={e => setAmount(e.target.value)}
+      />
 
-setPrice("")
-setAmount("")
+      <input
+        placeholder="Leverage"
+        value={leverage}
+        onChange={e => setLeverage(e.target.value)}
+      />
 
-}
+      <button onClick={() => handleOrder("BUY")}>
+        BUY
+      </button>
 
-return(
-
-<div className="order-panel">
-
-<h3>Order</h3>
-
-<input
-placeholder="Price"
-value={price}
-onChange={e=>setPrice(e.target.value)}
-/>
-
-<input
-placeholder="Amount"
-value={amount}
-onChange={e=>setAmount(e.target.value)}
-/>
-
-<input
-placeholder="Leverage"
-value={leverage}
-onChange={e=>setLeverage(e.target.value)}
-/>
-
-<div className="order-buttons">
-
-<button className="buy" onClick={()=>submit("BUY")}>
-BUY
-</button>
-
-<button className="sell" onClick={()=>submit("SELL")}>
-SELL
-</button>
-
-</div>
-
-</div>
-
-)
-
+      <button onClick={() => handleOrder("SELL")}>
+        SELL
+      </button>
+    </div>
+  )
 }
