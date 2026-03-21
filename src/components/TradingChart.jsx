@@ -1,125 +1,189 @@
-import { useEffect, useRef, useContext } from "react"
-import { TradingContext } from "../store/tradingStore.jsx"
+import React, { useEffect, useRef } from "react"
+import { useTrading } from "../store/tradingStore"
 
-export default function TradingChart({ pair }) {
-
-  const chartContainerRef = useRef(null)
+export default function TradingChart() {
+  const chartRef = useRef(null)
   const widgetRef = useRef(null)
+  const tvChartRef = useRef(null)
+  const shapesRef = useRef({})
 
-  const { orderLines } = useContext(TradingContext)
+  const {
+    pair,
+    orders,
+    tpLines,
+    slLines,
+    liquidationLines,
+    livePrice,
+    cancelOrder,
+    updateTP,
+    updateSL
+  } = useTrading()
 
-  /* ===============================
-     CREATE WIDGET (ONLY ONCE)
-  =============================== */
-
+  // ===============================
+  // INIT CHART (ONLY ONCE)
+  // ===============================
   useEffect(() => {
+    if (widgetRef.current) return
 
-    if (!window.TradingView) return
-
-    if (widgetRef.current) {
-      widgetRef.current.remove()
-      widgetRef.current = null
-    }
-
-    widgetRef.current = new window.TradingView.widget({
-
-      symbol: "BINANCE:" + pair,
-
+    const widget = new window.TradingView.widget({
+      symbol: pair || "BINANCE:BTCUSDT",
       interval: "15",
-
-      container_id: "tradingview_chart",
-
-      theme: "dark",
-
-      style: "1",
-
-      locale: "en",
-
+      container_id: "tv_chart",
       autosize: true,
-
-      toolbar_bg: "#0b0e11",
-
+      theme: "dark",
+      style: "1",
+      locale: "en",
       enable_publishing: false,
-
-      hide_top_toolbar: false,
-
-      hide_legend: false,
-
-      save_image: false
+      hide_side_toolbar: false,
+      allow_symbol_change: true,
     })
 
-    widgetRef.current.onChartReady(() => {
+    widgetRef.current = widget
 
-      console.log("Chart Ready")
-
+    widget.onChartReady(() => {
+      tvChartRef.current = widget.chart()
     })
 
     return () => {
-
-      if (widgetRef.current) {
-
-        widgetRef.current.remove()
-        widgetRef.current = null
-
-      }
-
+      widgetRef.current?.remove()
+      widgetRef.current = null
     }
+  }, [])
 
+  // ===============================
+  // UPDATE SYMBOL (NO RECREATE)
+  // ===============================
+  useEffect(() => {
+    if (!tvChartRef.current) return
+    tvChartRef.current.setSymbol(pair, () => {})
   }, [pair])
 
-  /* ===============================
-     DRAW ORDER LINES
-  =============================== */
-
+  // ===============================
+  // DRAW ALL LINES
+  // ===============================
   useEffect(() => {
+    if (!tvChartRef.current) return
 
-    const widget = widgetRef.current
+    const chart = tvChartRef.current
 
-    if (!widget) return
-
-    widget.onChartReady(() => {
-
-      const chart = widget.chart()
-
+    // CLEAR OLD SHAPES
+    Object.values(shapesRef.current).forEach(shape => {
       try {
-
-        orderLines.forEach(line => {
-
-          chart.createShape(
-            { price: line.price },
-            {
-              shape: "horizontal_line",
-              text: line.side,
-              color: line.side === "BUY" ? "#00ff9c" : "#ff4976",
-              disableSelection: true,
-              disableSave: true,
-              lock: true
-            }
-          )
-
-        })
-
-      } catch (e) {
-
-        console.log("order line error")
-
-      }
-
+        chart.removeEntity(shape)
+      } catch {}
     })
 
-  }, [orderLines])
+    shapesRef.current = {}
+
+    // ================= ENTRY
+    orders.forEach(order => {
+      const shape = chart.createShape(
+        { price: order.price },
+        {
+          shape: "horizontal_line",
+          text: `ENTRY ${order.side}`,
+          lock: false,
+          overrides: {
+            linecolor: order.side === "BUY" ? "#00ff88" : "#ff3b3b",
+            linewidth: 2,
+          }
+        }
+      )
+
+      shapesRef.current[`order_${order.id}`] = shape
+
+      // CANCEL ON CLICK
+      shape.onClick(() => cancelOrder(order.id))
+    })
+
+    // ================= TP
+    tpLines.forEach(tp => {
+      const shape = chart.createShape(
+        { price: tp.price },
+        {
+          shape: "horizontal_line",
+          text: "TP",
+          lock: false,
+          overrides: {
+            linecolor: "#00c3ff",
+            linestyle: 2,
+          }
+        }
+      )
+
+      shapesRef.current[`tp_${tp.id}`] = shape
+
+      shape.onMove(() => {
+        const price = shape.getPrice()
+        updateTP(tp.id, price)
+      })
+    })
+
+    // ================= SL
+    slLines.forEach(sl => {
+      const shape = chart.createShape(
+        { price: sl.price },
+        {
+          shape: "horizontal_line",
+          text: "SL",
+          lock: false,
+          overrides: {
+            linecolor: "#ff0000",
+          }
+        }
+      )
+
+      shapesRef.current[`sl_${sl.id}`] = shape
+
+      shape.onMove(() => {
+        const price = shape.getPrice()
+        updateSL(sl.id, price)
+      })
+    })
+
+    // ================= LIQUIDATION
+    liquidationLines.forEach(liq => {
+      const shape = chart.createShape(
+        { price: liq.price },
+        {
+          shape: "horizontal_line",
+          text: "LIQ",
+          lock: true,
+          overrides: {
+            linecolor: "#ff9900",
+            linestyle: 3,
+          }
+        }
+      )
+
+      shapesRef.current[`liq_${liq.id}`] = shape
+    })
+
+    // ================= LIVE PRICE
+    if (livePrice) {
+      const shape = chart.createShape(
+        { price: livePrice },
+        {
+          shape: "horizontal_line",
+          text: "LIVE",
+          lock: true,
+          overrides: {
+            linecolor: "#ffffff",
+            linestyle: 1,
+          }
+        }
+      )
+
+      shapesRef.current["live"] = shape
+    }
+
+  }, [orders, tpLines, slLines, liquidationLines, livePrice])
 
   return (
-
     <div
-      id="tradingview_chart"
-      ref={chartContainerRef}
-      style={{
-        width: "100%",
-        height: "100%"
-      }}
+      id="tv_chart"
+      ref={chartRef}
+      style={{ width: "100%", height: "100%" }}
     />
-
   )
-
 }
