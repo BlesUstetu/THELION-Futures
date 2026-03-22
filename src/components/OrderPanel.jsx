@@ -17,26 +17,25 @@ export default function OrderPanel() {
       price,
       amount,
       side,
+      tp: side === "BUY" ? price + 500 : price - 500,
+      sl: side === "BUY" ? price - 500 : price + 500,
     })
   }
 
   return (
     <div className="order-panel">
-      {/* PRICE */}
       <input
         value={price || ""}
         onChange={(e) => setPrice(Number(e.target.value))}
         placeholder="Price"
       />
 
-      {/* AMOUNT */}
       <input
         value={amount}
         onChange={(e) => setAmount(Number(e.target.value))}
         placeholder="Amount"
       />
 
-      {/* BUTTON */}
       <div className="flex">
         <button onClick={() => handleOrder("BUY")} className="buy">
           Buy
