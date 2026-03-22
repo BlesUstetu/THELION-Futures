@@ -3,14 +3,12 @@ import { createChart } from "lightweight-charts"
 import { useTradingStore } from "../store/tradingStore"
 
 export default function TradingChart() {
-  const containerRef = useRef()
-  const chartRef = useRef()
-  const seriesRef = useRef()
+  const containerRef = useRef(null)
+  const chartRef = useRef(null)
+  const seriesRef = useRef(null)
 
   const orderLinesRef = useRef([])
-  const liveLineRef = useRef()
-  const rrSeriesRef = useRef()
-  const wsRef = useRef()
+  const wsRef = useRef(null)
 
   const dragRef = useRef({
     active: false,
@@ -18,13 +16,15 @@ export default function TradingChart() {
     orderId: null,
   })
 
-  const currentPriceRef = useRef(0)
-  const { orders } = useTradingStore()
+  // ✅ PENTING: subscribe dengan selector
+  const orders = useTradingStore((state) => state.orders)
 
   // =========================
-  // INIT CHART
+  // INIT CHART (ONCE)
   // =========================
   useEffect(() => {
+    if (!containerRef.current) return
+
     const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
       height: 400,
@@ -39,109 +39,53 @@ export default function TradingChart() {
     })
 
     const series = chart.addCandlestickSeries()
-    const rrSeries = chart.addAreaSeries({
-      lineColor: "transparent",
-      topColor: "rgba(34,197,94,0.2)",
-      bottomColor: "rgba(239,68,68,0.2)",
-    })
 
     chartRef.current = chart
     seriesRef.current = series
-    rrSeriesRef.current = rrSeries
 
+    // dummy data
     series.setData([
       { time: 1700000000, open: 68000, high: 69000, low: 67000, close: 68500 },
       { time: 1700000600, open: 68500, high: 68800, low: 68000, close: 68200 },
     ])
 
-    // CLICK (SELECT / SET PRICE / DELETE)
-    chart.subscribeClick((param) => {
-      if (!param.point) return
-
-      const price = series.coordinateToPrice(param.point.y)
-      const store = useTradingStore.getState()
-      const { orders, removeOrder } = store
-
-      // DOUBLE TAP DELETE
-      if (param.tapCount === 2) {
-        const found = orders.find(o => Math.abs(o.price - price) < 50)
-        if (found) removeOrder(found.id)
-        return
-      }
-
-      // SELECT LINE
-      for (let o of orders) {
-        if (Math.abs(o.price - price) < 50) {
-          dragRef.current = { active: true, type: "entry", orderId: o.id }
-          return
-        }
-        if (Math.abs(o.tp - price) < 50) {
-          dragRef.current = { active: true, type: "tp", orderId: o.id }
-          return
-        }
-        if (Math.abs(o.sl - price) < 50) {
-          dragRef.current = { active: true, type: "sl", orderId: o.id }
-          return
-        }
-      }
-
-      // SET PRICE
-      store.setPrice(price)
-      dragRef.current.active = false
-    })
-
-    // DRAG
-    chart.subscribeCrosshairMove((param) => {
-      if (!dragRef.current.active || !param.point) return
-
-      const price = series.coordinateToPrice(param.point.y)
-      const store = useTradingStore.getState()
-      const { orderId, type } = dragRef.current
-
-      if (type === "entry") {
-        store.updateOrder(orderId, { price })
-        store.setPrice(price)
-      }
-      if (type === "tp") store.setTP(orderId, price)
-      if (type === "sl") store.setSL(orderId, price)
-    })
-
+    // =========================
     // LIVE PRICE
+    // =========================
     const liveLine = series.createPriceLine({
       price: 0,
       color: "yellow",
       lineWidth: 1,
+      axisLabelVisible: true,
       title: "LIVE",
     })
 
-    liveLineRef.current = liveLine
-
-    const ws = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@trade")
+    const ws = new WebSocket(
+      "wss://stream.binance.com:9443/ws/btcusdt@trade"
+    )
     wsRef.current = ws
 
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data)
-      const price = parseFloat(data.p)
+      const price = Number(data.p)
 
-      currentPriceRef.current = price
       liveLine.applyOptions({ price })
 
       const store = useTradingStore.getState()
       const { orders, leverage } = store
 
       orders.forEach((o) => {
-        let pnl =
+        const pnl =
           o.side === "BUY"
             ? (price - o.price) * o.amount
             : (o.price - price) * o.amount
 
-        store.updatePNL(o.id, pnl)
-
-        let liq =
+        const liq =
           o.side === "BUY"
             ? o.price - o.price / leverage
             : o.price + o.price / leverage
 
+        store.updatePNL(o.id, pnl)
         store.updateLiquidation(o.id, liq)
       })
     }
@@ -153,12 +97,19 @@ export default function TradingChart() {
   }, [])
 
   // =========================
-  // RENDER ORDER + RR
+  // 🔥 CORE FIX: RENDER ORDER LINE
   // =========================
   useEffect(() => {
     const series = seriesRef.current
+
+    // ✅ guard
     if (!series) return
 
+    console.log("🔥 SYNC ORDERS:", orders)
+
+    // =========================
+    // CLEAR OLD
+    // =========================
     orderLinesRef.current.forEach((l) => {
       try {
         series.removePriceLine(l.entry)
@@ -170,44 +121,60 @@ export default function TradingChart() {
 
     orderLinesRef.current = []
 
+    // =========================
+    // DRAW NEW (ANTI BUG)
+    // =========================
     orders.forEach((o) => {
-      const entry = series.createPriceLine({
-        price: o.price,
+      // 🔥 VALIDATION SUPER PENTING
+      if (!o || o.price == null) return
+
+      const price = Number(o.price)
+      const tp = Number(o.tp || 0)
+      const sl = Number(o.sl || 0)
+      const liq = Number(o.liquidation || 0)
+
+      // ENTRY
+      const entryLine = series.createPriceLine({
+        price,
         color: o.side === "BUY" ? "#22c55e" : "#ef4444",
         lineWidth: 2,
-        title: "ENTRY",
+        axisLabelVisible: true,
+        title: `ENTRY ${price}`,
       })
 
-      const tp = series.createPriceLine({
-        price: o.tp,
+      // TP
+      const tpLine = series.createPriceLine({
+        price: tp,
         color: "#22c55e",
         lineStyle: 2,
+        axisLabelVisible: true,
         title: "TP",
       })
 
-      const sl = series.createPriceLine({
-        price: o.sl,
+      // SL
+      const slLine = series.createPriceLine({
+        price: sl,
         color: "#ef4444",
         lineStyle: 2,
+        axisLabelVisible: true,
         title: "SL",
       })
 
-      const liq = series.createPriceLine({
-        price: o.liquidation || 0,
+      // LIQ
+      const liqLine = series.createPriceLine({
+        price: liq,
         color: "#facc15",
         lineStyle: 3,
+        axisLabelVisible: true,
         title: "LIQ",
       })
 
-      orderLinesRef.current.push({ entry, tp, sl, liq })
-
-      // RR BOX (simple visual)
-      if (rrSeriesRef.current && o.tp && o.sl) {
-        rrSeriesRef.current.setData([
-          { time: 1700000000, value: o.price },
-          { time: 1700000600, value: o.tp },
-        ])
-      }
+      orderLinesRef.current.push({
+        entry: entryLine,
+        tp: tpLine,
+        sl: slLine,
+        liq: liqLine,
+      })
     })
   }, [orders])
 
