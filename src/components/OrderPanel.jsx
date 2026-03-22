@@ -1,5 +1,5 @@
 import { useState, useContext } from "react"
-import { TradingContext } from "../store/tradingStore.jsx"
+import { TradingContext } from "../store/tradingStore"
 
 export default function OrderPanel(){
 
