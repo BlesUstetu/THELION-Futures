@@ -3,20 +3,27 @@ import { createChart } from "lightweight-charts"
 import { useTradingStore } from "../store/tradingStore"
 
 export default function TradingChart() {
-  const chartContainerRef = useRef()
+  const containerRef = useRef()
   const chartRef = useRef()
   const seriesRef = useRef()
+
   const orderLinesRef = useRef([])
   const liveLineRef = useRef()
+
+  const dragRef = useRef({
+    active: false,
+    type: null,
+    orderId: null,
+  })
 
   const { orders } = useTradingStore()
 
   // =========================
-  // INIT CHART (ONLY ONCE)
+  // INIT CHART
   // =========================
   useEffect(() => {
-    const chart = createChart(chartContainerRef.current, {
-      width: chartContainerRef.current.clientWidth,
+    const chart = createChart(containerRef.current, {
+      width: containerRef.current.clientWidth,
       height: 400,
       layout: {
         background: { color: "#0f172a" },
@@ -33,27 +40,86 @@ export default function TradingChart() {
     chartRef.current = chart
     seriesRef.current = series
 
-    // =========================
-    // SAMPLE DATA (AMAN)
-    // =========================
     series.setData([
       { time: 1700000000, open: 68000, high: 69000, low: 67000, close: 68500 },
       { time: 1700000600, open: 68500, high: 68800, low: 68000, close: 68200 },
     ])
 
-    // =========================
-    // CLICK → SET PRICE
-    // =========================
+    // CLICK → SET PRICE / SELECT LINE
     chart.subscribeClick((param) => {
       if (!param.point) return
 
       const price = series.coordinateToPrice(param.point.y)
-      useTradingStore.getState().setPrice(price)
+      const { orders } = useTradingStore.getState()
+
+      let found = false
+
+      for (let o of orders) {
+        if (Math.abs(o.price - price) < 50) {
+          dragRef.current = { active: true, type: "entry", orderId: o.id }
+          found = true
+          return
+        }
+
+        if (Math.abs(o.tp - price) < 50) {
+          dragRef.current = { active: true, type: "tp", orderId: o.id }
+          found = true
+          return
+        }
+
+        if (Math.abs(o.sl - price) < 50) {
+          dragRef.current = { active: true, type: "sl", orderId: o.id }
+          found = true
+          return
+        }
+      }
+
+      if (!found) {
+        useTradingStore.getState().setPrice(price)
+      }
     })
 
-    // =========================
-    // LIVE PRICE LINE
-    // =========================
+    // DRAG
+    chart.subscribeCrosshairMove((param) => {
+      if (!dragRef.current.active) return
+      if (!param.point) return
+
+      const price = series.coordinateToPrice(param.point.y)
+      const store = useTradingStore.getState()
+
+      const { orderId, type } = dragRef.current
+
+      if (type === "entry") {
+        store.updateOrder(orderId, { price })
+        store.setPrice(price)
+      }
+
+      if (type === "tp") {
+        store.setTP(orderId, price)
+      }
+
+      if (type === "sl") {
+        store.setSL(orderId, price)
+      }
+    })
+
+    // RELEASE + DOUBLE TAP DELETE
+    chart.subscribeClick((param) => {
+      if (param.tapCount === 2 && param.point) {
+        const price = series.coordinateToPrice(param.point.y)
+        const { orders, removeOrder } = useTradingStore.getState()
+
+        const found = orders.find(
+          (o) => Math.abs(o.price - price) < 50
+        )
+
+        if (found) removeOrder(found.id)
+      }
+
+      dragRef.current.active = false
+    })
+
+    // LIVE PRICE
     const liveLine = series.createPriceLine({
       price: 0,
       color: "yellow",
@@ -64,9 +130,6 @@ export default function TradingChart() {
 
     liveLineRef.current = liveLine
 
-    // =========================
-    // BINANCE WS
-    // =========================
     const ws = new WebSocket(
       "wss://stream.binance.com:9443/ws/btcusdt@trade"
     )
@@ -78,67 +141,51 @@ export default function TradingChart() {
       liveLine.applyOptions({ price })
     }
 
-    return () => {
-      chart.remove()
-    }
+    return () => chart.remove()
   }, [])
 
   // =========================
-  // ORDER LINES (SYNC)
+  // RENDER ORDER LINES
   // =========================
   useEffect(() => {
     const series = seriesRef.current
     if (!series) return
 
-    // hapus lama
-    orderLinesRef.current.forEach((line) => {
+    orderLinesRef.current.forEach((l) => {
       try {
-        series.removePriceLine(line)
+        series.removePriceLine(l.entry)
+        series.removePriceLine(l.tp)
+        series.removePriceLine(l.sl)
       } catch {}
     })
 
     orderLinesRef.current = []
 
-    // render baru
-    orders.forEach((order) => {
-      const line = series.createPriceLine({
-        price: order.price,
-        color: order.side === "BUY" ? "green" : "red",
+    orders.forEach((o) => {
+      const entry = series.createPriceLine({
+        price: o.price,
+        color: o.side === "BUY" ? "#22c55e" : "#ef4444",
         lineWidth: 2,
-        axisLabelVisible: true,
-        title: order.side,
+        title: "ENTRY",
       })
 
-      orderLinesRef.current.push(line)
+      const tp = series.createPriceLine({
+        price: o.tp,
+        color: "#22c55e",
+        lineStyle: 2,
+        title: "TP",
+      })
+
+      const sl = series.createPriceLine({
+        price: o.sl,
+        color: "#ef4444",
+        lineStyle: 2,
+        title: "SL",
+      })
+
+      orderLinesRef.current.push({ id: o.id, entry, tp, sl })
     })
   }, [orders])
 
-  // =========================
-  // DOUBLE TAP → DELETE
-  // =========================
-  useEffect(() => {
-    const chart = chartRef.current
-    const series = seriesRef.current
-
-    if (!chart || !series) return
-
-    chart.subscribeClick((param) => {
-      if (param.tapCount !== 2) return
-      if (!param.point) return
-
-      const price = series.coordinateToPrice(param.point.y)
-
-      const { orders, removeOrder } = useTradingStore.getState()
-
-      const found = orders.find(
-        (o) => Math.abs(o.price - price) < 50
-      )
-
-      if (found) {
-        removeOrder(found.id)
-      }
-    })
-  }, [])
-
-  return <div ref={chartContainerRef} className="w-full h-full" />
+  return <div ref={containerRef} className="w-full h-full" />
 }
