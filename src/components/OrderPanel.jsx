@@ -7,6 +7,7 @@ export default function OrderPanel() {
     setPrice,
     setAmount,
     addOrder,
+    orders
   } = useTradingStore()
 
   const handleOrder = (side) => {
@@ -19,6 +20,8 @@ export default function OrderPanel() {
       side,
       tp: side === "BUY" ? price + 500 : price - 500,
       sl: side === "BUY" ? price - 500 : price + 500,
+      pnl: 0,
+      liquidation: 0,
     })
   }
 
@@ -45,6 +48,14 @@ export default function OrderPanel() {
           Sell
         </button>
       </div>
+
+      {/* INFO */}
+      {orders.map((o) => (
+        <div key={o.id}>
+          <div>PNL: {o.pnl?.toFixed(2)}</div>
+          <div>LIQ: {o.liquidation?.toFixed(2)}</div>
+        </div>
+      ))}
     </div>
   )
 }
