@@ -26,92 +26,105 @@ export default function ChartOverlay({ chart, series }) {
   }, [])
 
   // =========================
-  // DRAW LOOP
+  // DRAW LOOP (STABLE)
   // =========================
   useEffect(() => {
     const canvas = canvasRef.current
     const ctx = canvas.getContext("2d")
 
-    if (!series || !chart) return
+    if (!series) return
 
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
       orders.forEach((o) => {
-        const priceY = (p) =>
-          series.priceToCoordinate(p)
+        if (!o || o.price == null) return
 
-        const entryY = priceY(o.price)
-        const tpY = priceY(o.tp)
-        const slY = priceY(o.sl)
-        const liqY = priceY(o.liquidation)
+        const entryY = series.priceToCoordinate(o.price)
+        const tpY = series.priceToCoordinate(o.tp)
+        const slY = series.priceToCoordinate(o.sl)
+        const liqY = series.priceToCoordinate(o.liquidation)
 
-        if (!entryY) return
+        // 🔥 FIX UTAMA
+        if (entryY === null || entryY === undefined) return
 
         // =========================
-        // ENTRY LINE
+        // ENTRY
         // =========================
         ctx.strokeStyle = o.side === "BUY" ? "#22c55e" : "#ef4444"
         ctx.lineWidth = 2
+        ctx.setLineDash([])
         ctx.beginPath()
         ctx.moveTo(0, entryY)
         ctx.lineTo(canvas.width, entryY)
         ctx.stroke()
 
         // =========================
-        // TP LINE
+        // TP
         // =========================
-        ctx.strokeStyle = "#22c55e"
-        ctx.setLineDash([5, 5])
-        ctx.beginPath()
-        ctx.moveTo(0, tpY)
-        ctx.lineTo(canvas.width, tpY)
-        ctx.stroke()
+        if (tpY !== null && tpY !== undefined) {
+          ctx.strokeStyle = "#22c55e"
+          ctx.setLineDash([6, 6])
+          ctx.beginPath()
+          ctx.moveTo(0, tpY)
+          ctx.lineTo(canvas.width, tpY)
+          ctx.stroke()
+        }
 
         // =========================
-        // SL LINE
+        // SL
         // =========================
-        ctx.strokeStyle = "#ef4444"
-        ctx.beginPath()
-        ctx.moveTo(0, slY)
-        ctx.lineTo(canvas.width, slY)
-        ctx.stroke()
+        if (slY !== null && slY !== undefined) {
+          ctx.strokeStyle = "#ef4444"
+          ctx.setLineDash([6, 6])
+          ctx.beginPath()
+          ctx.moveTo(0, slY)
+          ctx.lineTo(canvas.width, slY)
+          ctx.stroke()
+        }
 
         // =========================
-        // LIQ LINE
+        // LIQ
         // =========================
-        ctx.strokeStyle = "#facc15"
-        ctx.beginPath()
-        ctx.moveTo(0, liqY)
-        ctx.lineTo(canvas.width, liqY)
-        ctx.stroke()
+        if (liqY !== null && liqY !== undefined) {
+          ctx.strokeStyle = "#facc15"
+          ctx.setLineDash([4, 4])
+          ctx.beginPath()
+          ctx.moveTo(0, liqY)
+          ctx.lineTo(canvas.width, liqY)
+          ctx.stroke()
+        }
 
         ctx.setLineDash([])
 
         // =========================
         // RR BOX
         // =========================
-        ctx.fillStyle = "rgba(34,197,94,0.15)"
-        ctx.fillRect(0, tpY, canvas.width, entryY - tpY)
+        if (tpY !== null && slY !== null) {
+          // PROFIT AREA
+          ctx.fillStyle = "rgba(34,197,94,0.15)"
+          ctx.fillRect(0, tpY, canvas.width, entryY - tpY)
 
-        ctx.fillStyle = "rgba(239,68,68,0.15)"
-        ctx.fillRect(0, entryY, canvas.width, slY - entryY)
+          // LOSS AREA
+          ctx.fillStyle = "rgba(239,68,68,0.15)"
+          ctx.fillRect(0, entryY, canvas.width, slY - entryY)
+        }
       })
 
       requestAnimationFrame(draw)
     }
 
     draw()
-  }, [orders, chart, series])
+  }, [orders, series])
 
   // =========================
-  // DRAG SYSTEM
+  // DRAG (ENTRY ONLY - STABLE)
   // =========================
   useEffect(() => {
     const canvas = canvasRef.current
+    if (!series) return
 
-    const getPrice = (y) =>
-      series.coordinateToPrice(y)
+    const getPrice = (y) => series.coordinateToPrice(y)
 
     const handleDown = (e) => {
       const rect = canvas.getBoundingClientRect()
@@ -121,6 +134,7 @@ export default function ChartOverlay({ chart, series }) {
 
       for (let o of orders) {
         const entryY = series.priceToCoordinate(o.price)
+        if (entryY == null) continue
 
         if (Math.abs(entryY - y) < 10) {
           dragRef.current = {
@@ -140,12 +154,12 @@ export default function ChartOverlay({ chart, series }) {
       const y = e.clientY - rect.top
       const price = getPrice(y)
 
+      if (!price) return
+
       const store = useTradingStore.getState()
 
       if (dragRef.current.type === "entry") {
-        store.updateOrder(dragRef.current.orderId, {
-          price,
-        })
+        store.updateOrder(dragRef.current.orderId, { price })
         store.setPrice(price)
       }
     }
@@ -173,6 +187,7 @@ export default function ChartOverlay({ chart, series }) {
         top: 0,
         left: 0,
         zIndex: 10,
+        pointerEvents: "auto",
       }}
     />
   )
