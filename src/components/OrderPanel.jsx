@@ -1,33 +1,40 @@
-import { useState } from "react"
-import { useTrading } from "../store/tradingStore"
+import React, { useState } from "react"
+import { useTradingStore } from "../store/tradingStore"
 
-export default function OrderPanel() {
-  const { placeOrder } = useTrading()
+const OrderPanel = () => {
+  const { addOrder } = useTradingStore()
 
-  const [price, setPrice] = useState("")
-  const [amount, setAmount] = useState("")
+  const [price, setPrice] = useState(100)
+  const [tp, setTp] = useState(110)
+  const [sl, setSl] = useState(90)
+  const [amount, setAmount] = useState(1)
 
   return (
     <div style={{ padding: 10 }}>
-      <input
-        placeholder="Price"
-        value={price}
-        onChange={e => setPrice(e.target.value)}
-      />
+      <h3>Order Panel</h3>
 
-      <input
-        placeholder="Amount"
-        value={amount}
-        onChange={e => setAmount(e.target.value)}
-      />
+      <input value={price} onChange={(e) => setPrice(+e.target.value)} />
+      <input value={tp} onChange={(e) => setTp(+e.target.value)} />
+      <input value={sl} onChange={(e) => setSl(+e.target.value)} />
+      <input value={amount} onChange={(e) => setAmount(+e.target.value)} />
 
-      <button onClick={() => placeOrder({ side: "BUY", price: +price, amount: +amount })}>
+      <button
+        onClick={() =>
+          addOrder({ type: "buy", price, tp, sl, amount })
+        }
+      >
         BUY
       </button>
 
-      <button onClick={() => placeOrder({ side: "SELL", price: +price, amount: +amount })}>
+      <button
+        onClick={() =>
+          addOrder({ type: "sell", price, tp, sl, amount })
+        }
+      >
         SELL
       </button>
     </div>
   )
 }
+
+export default OrderPanel
