@@ -1,214 +1,156 @@
-import { useEffect, useRef } from "react"
+import React, { useEffect, useRef } from "react"
 import { createChart } from "lightweight-charts"
-import { useTrading } from "../store/tradingStore"
+import { useTradingStore } from "../store/tradingStore"
 
-export default function TradingChart() {
-  const chartRef = useRef()
-  const candleSeriesRef = useRef()
-  const emaSeriesRef = useRef()
+const TradingChart = () => {
+  const chartContainerRef = useRef(null)
+  const chartRef = useRef(null)
+  const candleSeriesRef = useRef(null)
+  const lineSeriesRef = useRef({})
 
-  const linesRef = useRef({})
-  const livePriceRef = useRef(0)
-  const lastTimeRef = useRef(0)
-  const emaValueRef = useRef(null)
-
-  const { orders, tpLines, slLines, pair, timeframe } = useTrading()
+  const { orders, pair } = useTradingStore()
 
   // ===============================
-  // LOAD HISTORY
-  // ===============================
-  const loadHistory = async () => {
-    const res = await fetch(
-      `https://api.binance.com/api/v3/klines?symbol=${pair.toUpperCase()}&interval=${timeframe}&limit=200`
-    )
-    const data = await res.json()
-
-    return data.map(d => ({
-      time: Math.floor(d[0] / 1000),
-      open: +d[1],
-      high: +d[2],
-      low: +d[3],
-      close: +d[4]
-    }))
-  }
-
-  // ===============================
-  // INIT CHART
+  // INIT CHART (ONLY ONCE)
   // ===============================
   useEffect(() => {
-    const chart = createChart(chartRef.current, {
-      width: chartRef.current.clientWidth,
+    if (chartRef.current) return
+
+    const chart = createChart(chartContainerRef.current, {
+      width: chartContainerRef.current.clientWidth,
       height: 500,
       layout: {
-        background: { color: "#0b0f14" },
-        textColor: "#ccc"
+        background: { color: "#0a0a0a" },
+        textColor: "#DDD",
       },
       grid: {
-        vertLines: { color: "#1e222d" },
-        horzLines: { color: "#1e222d" }
-      }
+        vertLines: { color: "#1a1a1a" },
+        horzLines: { color: "#1a1a1a" },
+      },
+      crosshair: {
+        mode: 1,
+      },
+      rightPriceScale: {
+        borderColor: "#333",
+      },
+      timeScale: {
+        borderColor: "#333",
+        timeVisible: true,
+      },
     })
 
-    const candle = chart.addCandlestickSeries()
-    const ema = chart.addLineSeries({
-      color: "#ffaa00",
-      lineWidth: 2
-    })
+    const candleSeries = chart.addCandlestickSeries()
 
-    candleSeriesRef.current = candle
-    emaSeriesRef.current = ema
+    chartRef.current = chart
+    candleSeriesRef.current = candleSeries
 
-    let ws
+    // dummy data awal (anti blank)
+    candleSeries.setData([
+      { time: "2024-01-01", open: 100, high: 110, low: 90, close: 105 },
+    ])
 
-    const init = async () => {
-      const history = await loadHistory()
-
-      if (!history || history.length === 0) return
-
-      candle.setData(history)
-      chart.timeScale().fitContent()
-
-      const last = history[history.length - 1]
-      livePriceRef.current = last.close
-      lastTimeRef.current = last.time
-
-      // ===============================
-      // WEBSOCKET
-      // ===============================
-      ws = new WebSocket(
-        `wss://stream.binance.com:9443/ws/${pair}@kline_${timeframe}`
-      )
-
-      ws.onmessage = (e) => {
-        const k = JSON.parse(e.data).k
-
-        const time = Math.floor(k.t / 1000)
-        const price = +k.c
-
-        // 🚨 FILTER BUG DATA
-        if (price < 1000) return
-
-        const candleData = {
-          time,
-          open: +k.o,
-          high: +k.h,
-          low: +k.l,
-          close: price
-        }
-
-        livePriceRef.current = price
-
-        // ANTI HILANG CANDLE
-        if (time >= lastTimeRef.current) {
-          candle.update(candleData)
-          lastTimeRef.current = time
-        }
-
-        // ===============================
-        // EMA
-        // ===============================
-        const m = 2 / (14 + 1)
-
-        emaValueRef.current = emaValueRef.current
-          ? (price - emaValueRef.current) * m + emaValueRef.current
-          : price
-
-        ema.update({
-          time,
-          value: emaValueRef.current
-        })
-      }
+    // resize fix
+    const handleResize = () => {
+      chart.applyOptions({
+        width: chartContainerRef.current.clientWidth,
+      })
     }
 
-    init()
+    window.addEventListener("resize", handleResize)
 
     return () => {
-      ws && ws.close()
+      window.removeEventListener("resize", handleResize)
       chart.remove()
+      chartRef.current = null
     }
-  }, [pair, timeframe])
+  }, [])
 
   // ===============================
-  // DRAW TRADING LINES
+  // UPDATE CANDLE (SIMULASI / API NANTI)
   // ===============================
   useEffect(() => {
-    const s = candleSeriesRef.current
-    if (!s) return
+    if (!candleSeriesRef.current) return
 
-    const pnl = (entry, price, side, amt = 1) =>
-      side === "BUY" ? (price - entry) * amt : (entry - price) * amt
+    // contoh update dummy (nanti ganti websocket)
+    const interval = setInterval(() => {
+      const time = new Date().toISOString().slice(0, 10)
+      const price = 100 + Math.random() * 20
 
-    const liq = (entry, lev, side) =>
-      side === "BUY"
-        ? entry * (1 - 1 / lev)
-        : entry * (1 + 1 / lev)
-
-    orders.forEach(o => {
-      const key = "entry_" + o.id
-      const p = pnl(o.price, livePriceRef.current, o.side, o.amount)
-
-      if (!linesRef.current[key]) {
-        linesRef.current[key] = s.createPriceLine({
-          price: o.price
-        })
-      }
-
-      linesRef.current[key].applyOptions({
-        price: o.price,
-        color: p > 0 ? "#00ff88" : "#ff4444",
-        title: `ENTRY ${o.side} | ${p.toFixed(2)}`
+      candleSeriesRef.current.update({
+        time,
+        open: price - 5,
+        high: price + 5,
+        low: price - 10,
+        close: price,
       })
+    }, 2000)
 
-      const liqKey = "liq_" + o.id
-      const liqPrice = liq(o.price, 10, o.side)
+    return () => clearInterval(interval)
+  }, [])
 
-      if (!linesRef.current[liqKey]) {
-        linesRef.current[liqKey] = s.createPriceLine({
-          price: liqPrice,
-          color: "#ff8800",
-          title: "LIQ"
-        })
-      }
+  // ===============================
+  // DRAW ORDER LINES (ENTRY / TP / SL)
+  // ===============================
+  useEffect(() => {
+    if (!chartRef.current) return
 
-      linesRef.current[liqKey].applyOptions({
-        price: liqPrice
-      })
+    // clear old lines
+    Object.values(lineSeriesRef.current).forEach((line) => {
+      chartRef.current.removeSeries(line)
     })
 
-    tpLines.forEach(tp => {
-      const key = "tp_" + tp.id
+    lineSeriesRef.current = {}
 
-      if (!linesRef.current[key]) {
-        linesRef.current[key] = s.createPriceLine({
-          price: tp.price,
-          color: "#00ff88",
-          lineStyle: 2,
-          title: "TP"
-        })
-      }
-
-      linesRef.current[key].applyOptions({
-        price: tp.price
+    orders.forEach((order, index) => {
+      const line = chartRef.current.addLineSeries({
+        color:
+          order.type === "buy"
+            ? "#00ff88"
+            : order.type === "sell"
+            ? "#ff4444"
+            : "#ffaa00",
+        lineWidth: 2,
+        priceLineVisible: true,
       })
+
+      line.setData([
+        { time: "2024-01-01", value: order.price },
+        { time: "2025-01-01", value: order.price },
+      ])
+
+      lineSeriesRef.current[`order-${index}`] = line
+    })
+  }, [orders])
+
+  // ===============================
+  // LIVE PRICE LINE
+  // ===============================
+  useEffect(() => {
+    if (!candleSeriesRef.current) return
+
+    const priceLine = candleSeriesRef.current.createPriceLine({
+      price: 100,
+      color: "#2962FF",
+      lineWidth: 2,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title: "LIVE",
     })
 
-    slLines.forEach(sl => {
-      const key = "sl_" + sl.id
+    return () => {
+      candleSeriesRef.current.removePriceLine(priceLine)
+    }
+  }, [])
 
-      if (!linesRef.current[key]) {
-        linesRef.current[key] = s.createPriceLine({
-          price: sl.price,
-          color: "#ff0000",
-          lineStyle: 2,
-          title: "SL"
-        })
-      }
-
-      linesRef.current[key].applyOptions({
-        price: sl.price
-      })
-    })
-  }, [orders, tpLines, slLines])
-
-  return <div ref={chartRef} style={{ width: "100%" }} />
+  return (
+    <div
+      ref={chartContainerRef}
+      style={{
+        width: "100%",
+        height: "500px",
+      }}
+    />
+  )
 }
+
+export default TradingChart
