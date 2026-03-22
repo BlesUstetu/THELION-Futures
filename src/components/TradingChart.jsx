@@ -1,156 +1,152 @@
-import React, { useEffect, useRef } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { createChart } from "lightweight-charts"
 import { useTradingStore } from "../store/tradingStore"
 
 const TradingChart = () => {
-  const chartContainerRef = useRef(null)
+  const containerRef = useRef(null)
   const chartRef = useRef(null)
-  const candleSeriesRef = useRef(null)
-  const lineSeriesRef = useRef({})
+  const candleRef = useRef(null)
 
-  const { orders, pair } = useTradingStore()
+  const priceLinesRef = useRef({})
+  const areaSeriesRef = useRef(null)
+
+  const [dragging, setDragging] = useState(null)
+
+  const { orders, updateOrder } = useTradingStore()
 
   // ===============================
-  // INIT CHART (ONLY ONCE)
+  // INIT CHART
   // ===============================
   useEffect(() => {
     if (chartRef.current) return
 
-    const chart = createChart(chartContainerRef.current, {
-      width: chartContainerRef.current.clientWidth,
+    const chart = createChart(containerRef.current, {
+      width: containerRef.current.clientWidth,
       height: 500,
-      layout: {
-        background: { color: "#0a0a0a" },
-        textColor: "#DDD",
-      },
-      grid: {
-        vertLines: { color: "#1a1a1a" },
-        horzLines: { color: "#1a1a1a" },
-      },
-      crosshair: {
-        mode: 1,
-      },
-      rightPriceScale: {
-        borderColor: "#333",
-      },
-      timeScale: {
-        borderColor: "#333",
-        timeVisible: true,
-      },
+      layout: { background: { color: "#0a0a0a" }, textColor: "#DDD" },
     })
 
-    const candleSeries = chart.addCandlestickSeries()
+    const candle = chart.addCandlestickSeries()
 
     chartRef.current = chart
-    candleSeriesRef.current = candleSeries
+    candleRef.current = candle
 
-    // dummy data awal (anti blank)
-    candleSeries.setData([
+    candle.setData([
       { time: "2024-01-01", open: 100, high: 110, low: 90, close: 105 },
     ])
 
-    // resize fix
-    const handleResize = () => {
-      chart.applyOptions({
-        width: chartContainerRef.current.clientWidth,
+    // ===============================
+    // CROSSHAIR MOVE (DRAG ENGINE)
+    // ===============================
+    chart.subscribeCrosshairMove((param) => {
+      if (!dragging || !param?.seriesPrices) return
+
+      const price = param.seriesPrices.get(candle)
+      if (!price) return
+
+      const { index, type } = dragging
+
+      updateOrder(index, {
+        [type]: price,
       })
-    }
-
-    window.addEventListener("resize", handleResize)
-
-    return () => {
-      window.removeEventListener("resize", handleResize)
-      chart.remove()
-      chartRef.current = null
-    }
-  }, [])
-
-  // ===============================
-  // UPDATE CANDLE (SIMULASI / API NANTI)
-  // ===============================
-  useEffect(() => {
-    if (!candleSeriesRef.current) return
-
-    // contoh update dummy (nanti ganti websocket)
-    const interval = setInterval(() => {
-      const time = new Date().toISOString().slice(0, 10)
-      const price = 100 + Math.random() * 20
-
-      candleSeriesRef.current.update({
-        time,
-        open: price - 5,
-        high: price + 5,
-        low: price - 10,
-        close: price,
-      })
-    }, 2000)
-
-    return () => clearInterval(interval)
-  }, [])
-
-  // ===============================
-  // DRAW ORDER LINES (ENTRY / TP / SL)
-  // ===============================
-  useEffect(() => {
-    if (!chartRef.current) return
-
-    // clear old lines
-    Object.values(lineSeriesRef.current).forEach((line) => {
-      chartRef.current.removeSeries(line)
     })
 
-    lineSeriesRef.current = {}
+    // mouse up stop drag
+    const stopDrag = () => setDragging(null)
+    window.addEventListener("mouseup", stopDrag)
 
-    orders.forEach((order, index) => {
-      const line = chartRef.current.addLineSeries({
-        color:
-          order.type === "buy"
-            ? "#00ff88"
-            : order.type === "sell"
-            ? "#ff4444"
-            : "#ffaa00",
+    return () => {
+      window.removeEventListener("mouseup", stopDrag)
+      chart.remove()
+    }
+  }, [])
+
+  // ===============================
+  // DRAW LINES (ENTRY / TP / SL)
+  // ===============================
+  useEffect(() => {
+    if (!candleRef.current) return
+
+    // clear old
+    Object.values(priceLinesRef.current).forEach((line) =>
+      candleRef.current.removePriceLine(line)
+    )
+
+    priceLinesRef.current = {}
+
+    orders.forEach((order, i) => {
+      // ENTRY
+      const entry = candleRef.current.createPriceLine({
+        price: order.price,
+        color: "#ffaa00",
         lineWidth: 2,
-        priceLineVisible: true,
+        title: "ENTRY",
       })
 
-      line.setData([
-        { time: "2024-01-01", value: order.price },
-        { time: "2025-01-01", value: order.price },
-      ])
+      // TP
+      const tp = candleRef.current.createPriceLine({
+        price: order.tp,
+        color: "#00ff88",
+        lineWidth: 2,
+        title: "TP",
+      })
 
-      lineSeriesRef.current[`order-${index}`] = line
+      // SL
+      const sl = candleRef.current.createPriceLine({
+        price: order.sl,
+        color: "#ff4444",
+        lineWidth: 2,
+        title: "SL",
+      })
+
+      // attach click event via DOM overlay hack
+      attachDrag(entry, i, "price")
+      attachDrag(tp, i, "tp")
+      attachDrag(sl, i, "sl")
+
+      priceLinesRef.current[`entry-${i}`] = entry
+      priceLinesRef.current[`tp-${i}`] = tp
+      priceLinesRef.current[`sl-${i}`] = sl
     })
   }, [orders])
 
   // ===============================
-  // LIVE PRICE LINE
+  // DRAG HANDLER
+  // ===============================
+  const attachDrag = (line, index, type) => {
+    // hack: detect near price click via crosshair
+    containerRef.current.addEventListener("mousedown", () => {
+      setDragging({ index, type })
+    })
+  }
+
+  // ===============================
+  // RISK REWARD BOX (AREA)
   // ===============================
   useEffect(() => {
-    if (!candleSeriesRef.current) return
+    if (!chartRef.current || orders.length === 0) return
 
-    const priceLine = candleSeriesRef.current.createPriceLine({
-      price: 100,
-      color: "#2962FF",
-      lineWidth: 2,
-      lineStyle: 2,
-      axisLabelVisible: true,
-      title: "LIVE",
+    if (areaSeriesRef.current) {
+      chartRef.current.removeSeries(areaSeriesRef.current)
+    }
+
+    const order = orders[0]
+
+    const area = chartRef.current.addAreaSeries({
+      topColor: "rgba(0,255,136,0.2)",
+      bottomColor: "rgba(255,68,68,0.2)",
+      lineColor: "transparent",
     })
 
-    return () => {
-      candleSeriesRef.current.removePriceLine(priceLine)
-    }
-  }, [])
+    area.setData([
+      { time: "2024-01-01", value: order.tp },
+      { time: "2025-01-01", value: order.tp },
+    ])
 
-  return (
-    <div
-      ref={chartContainerRef}
-      style={{
-        width: "100%",
-        height: "500px",
-      }}
-    />
-  )
+    areaSeriesRef.current = area
+  }, [orders])
+
+  return <div ref={containerRef} style={{ width: "100%", height: 500 }} />
 }
 
 export default TradingChart
