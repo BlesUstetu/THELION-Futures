@@ -9,6 +9,8 @@ export default function TradingChart() {
 
   const orderLinesRef = useRef([])
   const liveLineRef = useRef()
+  const rrSeriesRef = useRef()
+  const wsRef = useRef()
 
   const dragRef = useRef({
     active: false,
@@ -16,6 +18,7 @@ export default function TradingChart() {
     orderId: null,
   })
 
+  const currentPriceRef = useRef(0)
   const { orders } = useTradingStore()
 
   // =========================
@@ -36,87 +39,71 @@ export default function TradingChart() {
     })
 
     const series = chart.addCandlestickSeries()
+    const rrSeries = chart.addAreaSeries({
+      lineColor: "transparent",
+      topColor: "rgba(34,197,94,0.2)",
+      bottomColor: "rgba(239,68,68,0.2)",
+    })
 
     chartRef.current = chart
     seriesRef.current = series
+    rrSeriesRef.current = rrSeries
 
     series.setData([
       { time: 1700000000, open: 68000, high: 69000, low: 67000, close: 68500 },
       { time: 1700000600, open: 68500, high: 68800, low: 68000, close: 68200 },
     ])
 
-    // CLICK → SET PRICE / SELECT LINE
+    // CLICK (SELECT / SET PRICE / DELETE)
     chart.subscribeClick((param) => {
       if (!param.point) return
 
       const price = series.coordinateToPrice(param.point.y)
-      const { orders } = useTradingStore.getState()
+      const store = useTradingStore.getState()
+      const { orders, removeOrder } = store
 
-      let found = false
+      // DOUBLE TAP DELETE
+      if (param.tapCount === 2) {
+        const found = orders.find(o => Math.abs(o.price - price) < 50)
+        if (found) removeOrder(found.id)
+        return
+      }
 
+      // SELECT LINE
       for (let o of orders) {
         if (Math.abs(o.price - price) < 50) {
           dragRef.current = { active: true, type: "entry", orderId: o.id }
-          found = true
           return
         }
-
         if (Math.abs(o.tp - price) < 50) {
           dragRef.current = { active: true, type: "tp", orderId: o.id }
-          found = true
           return
         }
-
         if (Math.abs(o.sl - price) < 50) {
           dragRef.current = { active: true, type: "sl", orderId: o.id }
-          found = true
           return
         }
       }
 
-      if (!found) {
-        useTradingStore.getState().setPrice(price)
-      }
+      // SET PRICE
+      store.setPrice(price)
+      dragRef.current.active = false
     })
 
     // DRAG
     chart.subscribeCrosshairMove((param) => {
-      if (!dragRef.current.active) return
-      if (!param.point) return
+      if (!dragRef.current.active || !param.point) return
 
       const price = series.coordinateToPrice(param.point.y)
       const store = useTradingStore.getState()
-
       const { orderId, type } = dragRef.current
 
       if (type === "entry") {
         store.updateOrder(orderId, { price })
         store.setPrice(price)
       }
-
-      if (type === "tp") {
-        store.setTP(orderId, price)
-      }
-
-      if (type === "sl") {
-        store.setSL(orderId, price)
-      }
-    })
-
-    // RELEASE + DOUBLE TAP DELETE
-    chart.subscribeClick((param) => {
-      if (param.tapCount === 2 && param.point) {
-        const price = series.coordinateToPrice(param.point.y)
-        const { orders, removeOrder } = useTradingStore.getState()
-
-        const found = orders.find(
-          (o) => Math.abs(o.price - price) < 50
-        )
-
-        if (found) removeOrder(found.id)
-      }
-
-      dragRef.current.active = false
+      if (type === "tp") store.setTP(orderId, price)
+      if (type === "sl") store.setSL(orderId, price)
     })
 
     // LIVE PRICE
@@ -124,28 +111,49 @@ export default function TradingChart() {
       price: 0,
       color: "yellow",
       lineWidth: 1,
-      axisLabelVisible: true,
       title: "LIVE",
     })
 
     liveLineRef.current = liveLine
 
-    const ws = new WebSocket(
-      "wss://stream.binance.com:9443/ws/btcusdt@trade"
-    )
+    const ws = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@trade")
+    wsRef.current = ws
 
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data)
       const price = parseFloat(data.p)
 
+      currentPriceRef.current = price
       liveLine.applyOptions({ price })
+
+      const store = useTradingStore.getState()
+      const { orders, leverage } = store
+
+      orders.forEach((o) => {
+        let pnl =
+          o.side === "BUY"
+            ? (price - o.price) * o.amount
+            : (o.price - price) * o.amount
+
+        store.updatePNL(o.id, pnl)
+
+        let liq =
+          o.side === "BUY"
+            ? o.price - o.price / leverage
+            : o.price + o.price / leverage
+
+        store.updateLiquidation(o.id, liq)
+      })
     }
 
-    return () => chart.remove()
+    return () => {
+      ws.close()
+      chart.remove()
+    }
   }, [])
 
   // =========================
-  // RENDER ORDER LINES
+  // RENDER ORDER + RR
   // =========================
   useEffect(() => {
     const series = seriesRef.current
@@ -156,6 +164,7 @@ export default function TradingChart() {
         series.removePriceLine(l.entry)
         series.removePriceLine(l.tp)
         series.removePriceLine(l.sl)
+        series.removePriceLine(l.liq)
       } catch {}
     })
 
@@ -183,7 +192,22 @@ export default function TradingChart() {
         title: "SL",
       })
 
-      orderLinesRef.current.push({ id: o.id, entry, tp, sl })
+      const liq = series.createPriceLine({
+        price: o.liquidation || 0,
+        color: "#facc15",
+        lineStyle: 3,
+        title: "LIQ",
+      })
+
+      orderLinesRef.current.push({ entry, tp, sl, liq })
+
+      // RR BOX (simple visual)
+      if (rrSeriesRef.current && o.tp && o.sl) {
+        rrSeriesRef.current.setData([
+          { time: 1700000000, value: o.price },
+          { time: 1700000600, value: o.tp },
+        ])
+      }
     })
   }, [orders])
 
