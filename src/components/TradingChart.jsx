@@ -17,10 +17,15 @@ const TradingChart = () => {
   useEffect(() => {
     if (chartRef.current) return
 
-    const chart = createChart(ref.current, {
-      width: ref.current.clientWidth,
-      height: 500,
-      layout: { background: { color: "#000" }, textColor: "#fff" },
+    const { checkTPSL, checkLiquidation } =
+      useTradingStore.getState()
+
+    connectBinanceWS((candle, price) => {
+      candleRef.current.update(candle)
+
+       // trigger engine
+      checkTPSL(price)
+      checkLiquidation(price)
     })
 
     const candle = chart.addCandlestickSeries()
