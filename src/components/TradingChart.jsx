@@ -1,85 +1,144 @@
-import { useEffect, useRef, useContext } from "react"
-import { TradingContext } from "../store/tradingStore.jsx"
+import { useEffect, useRef } from "react"
+import { createChart } from "lightweight-charts"
+import { useTradingStore } from "../store/tradingStore"
 
-export default function TradingChart({ pair }){
+export default function TradingChart() {
+  const chartContainerRef = useRef()
+  const chartRef = useRef()
+  const seriesRef = useRef()
+  const orderLinesRef = useRef([])
+  const liveLineRef = useRef()
 
-const chartRef = useRef(null)
+  const { orders } = useTradingStore()
 
-const { orderLines } = useContext(TradingContext)
+  // =========================
+  // INIT CHART (ONLY ONCE)
+  // =========================
+  useEffect(() => {
+    const chart = createChart(chartContainerRef.current, {
+      width: chartContainerRef.current.clientWidth,
+      height: 400,
+      layout: {
+        background: { color: "#0f172a" },
+        textColor: "#ccc",
+      },
+      grid: {
+        vertLines: { color: "#1e293b" },
+        horzLines: { color: "#1e293b" },
+      },
+    })
 
-useEffect(()=>{
+    const series = chart.addCandlestickSeries()
 
-if(typeof window === "undefined") return
-if(!window.TradingView) return
+    chartRef.current = chart
+    seriesRef.current = series
 
-const widget = new window.TradingView.widget({
+    // =========================
+    // SAMPLE DATA (AMAN)
+    // =========================
+    series.setData([
+      { time: 1700000000, open: 68000, high: 69000, low: 67000, close: 68500 },
+      { time: 1700000600, open: 68500, high: 68800, low: 68000, close: 68200 },
+    ])
 
-container_id:"tradingview_chart",
+    // =========================
+    // CLICK → SET PRICE
+    // =========================
+    chart.subscribeClick((param) => {
+      if (!param.point) return
 
-symbol:"BINANCE:"+pair,
+      const price = series.coordinateToPrice(param.point.y)
+      useTradingStore.getState().setPrice(price)
+    })
 
-interval:"15",
+    // =========================
+    // LIVE PRICE LINE
+    // =========================
+    const liveLine = series.createPriceLine({
+      price: 0,
+      color: "yellow",
+      lineWidth: 1,
+      axisLabelVisible: true,
+      title: "LIVE",
+    })
 
-theme:"dark",
+    liveLineRef.current = liveLine
 
-style:"1",
+    // =========================
+    // BINANCE WS
+    // =========================
+    const ws = new WebSocket(
+      "wss://stream.binance.com:9443/ws/btcusdt@trade"
+    )
 
-locale:"en",
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data)
+      const price = parseFloat(data.p)
 
-autosize:true,
+      liveLine.applyOptions({ price })
+    }
 
-toolbar_bg:"#0b0e11",
+    return () => {
+      chart.remove()
+    }
+  }, [])
 
-enable_publishing:false,
+  // =========================
+  // ORDER LINES (SYNC)
+  // =========================
+  useEffect(() => {
+    const series = seriesRef.current
+    if (!series) return
 
-hide_top_toolbar:false
+    // hapus lama
+    orderLinesRef.current.forEach((line) => {
+      try {
+        series.removePriceLine(line)
+      } catch {}
+    })
 
-})
+    orderLinesRef.current = []
 
-/* draw order lines */
+    // render baru
+    orders.forEach((order) => {
+      const line = series.createPriceLine({
+        price: order.price,
+        color: order.side === "BUY" ? "green" : "red",
+        lineWidth: 2,
+        axisLabelVisible: true,
+        title: order.side,
+      })
 
-setTimeout(()=>{
+      orderLinesRef.current.push(line)
+    })
+  }, [orders])
 
-if(!widget.chart) return
+  // =========================
+  // DOUBLE TAP → DELETE
+  // =========================
+  useEffect(() => {
+    const chart = chartRef.current
+    const series = seriesRef.current
 
-try{
+    if (!chart || !series) return
 
-orderLines.forEach(line=>{
+    chart.subscribeClick((param) => {
+      if (param.tapCount !== 2) return
+      if (!param.point) return
 
-widget.chart().createShape(
+      const price = series.coordinateToPrice(param.point.y)
 
-{ price: line.price },
+      const { orders, removeOrder } = useTradingStore.getState()
 
-{
-shape:"horizontal_line",
-text:line.side,
-color: line.side==="BUY" ? "green" : "red",
-disableSelection:true,
-disableSave:true
-}
+      const found = orders.find(
+        (o) => Math.abs(o.price - price) < 50
+      )
 
-)
+      if (found) {
+        removeOrder(found.id)
+      }
+    })
+  }, [])
 
-})
-
-}catch(e){
-
-console.log("chart not ready")
-
-}
-
-},2000)
-
-},[pair,orderLines])
-
-return(
-
-<div
-id="tradingview_chart"
-ref={chartRef}
-style={{width:"100%",height:"100%"}}
-/>
-
-)
-
+  return <div ref={chartContainerRef} className="w-full h-full" />
 }
