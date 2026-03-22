@@ -2,7 +2,7 @@ import { create } from "zustand"
 
 export const useTradingStore = create((set) => ({
   // =========================
-  // FORM STATE
+  // FORM
   // =========================
   price: null,
   amount: 10,
@@ -13,9 +13,12 @@ export const useTradingStore = create((set) => ({
   setSide: (side) => set({ side }),
 
   // =========================
-  // ORDERS
+  // ORDER STATE
   // =========================
   orders: [],
+  selectedOrderId: null,
+
+  setSelectedOrder: (id) => set({ selectedOrderId: id }),
 
   addOrder: (order) =>
     set((state) => ({
@@ -32,5 +35,19 @@ export const useTradingStore = create((set) => ({
   removeOrder: (id) =>
     set((state) => ({
       orders: state.orders.filter((o) => o.id !== id),
+    })),
+
+  setTP: (id, tp) =>
+    set((state) => ({
+      orders: state.orders.map((o) =>
+        o.id === id ? { ...o, tp } : o
+      ),
+    })),
+
+  setSL: (id, sl) =>
+    set((state) => ({
+      orders: state.orders.map((o) =>
+        o.id === id ? { ...o, sl } : o
+      ),
     })),
 }))
