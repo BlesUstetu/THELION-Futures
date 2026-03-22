@@ -9,10 +9,10 @@ export default function TradingChart() {
   const seriesRef = useRef(null)
   const wsRef = useRef(null)
 
-  const [chartReady, setChartReady] = useState(false)
+  const [ready, setReady] = useState(false)
 
   // =========================
-  // INIT CHART (ONLY ONCE)
+  // INIT CHART
   // =========================
   useEffect(() => {
     if (!containerRef.current) return
@@ -34,11 +34,6 @@ export default function TradingChart() {
       rightPriceScale: {
         autoScale: true,
       },
-
-      timeScale: {
-        timeVisible: true,
-        secondsVisible: false,
-      },
     })
 
     const series = chart.addCandlestickSeries()
@@ -47,27 +42,20 @@ export default function TradingChart() {
     seriesRef.current = series
 
     // =========================
-    // SAMPLE DATA (SAFE)
+    // DATA
     // =========================
     series.setData([
-      {
-        time: 1700000000,
-        open: 68000,
-        high: 69000,
-        low: 67000,
-        close: 68500,
-      },
-      {
-        time: 1700000600,
-        open: 68500,
-        high: 68800,
-        low: 68000,
-        close: 68200,
-      },
+      { time: 1700000000, open: 68000, high: 69000, low: 67000, close: 68500 },
+      { time: 1700000600, open: 68500, high: 68800, low: 68000, close: 68200 },
     ])
 
+    // 🔥 FIX SCALE DELAY
+    setTimeout(() => {
+      chart.timeScale().fitContent()
+    }, 300)
+
     // =========================
-    // LIVE PRICE LINE
+    // LIVE PRICE
     // =========================
     const liveLine = series.createPriceLine({
       price: 0,
@@ -77,13 +65,7 @@ export default function TradingChart() {
       title: "LIVE",
     })
 
-    // =========================
-    // BINANCE WEBSOCKET
-    // =========================
-    const ws = new WebSocket(
-      "wss://stream.binance.com:9443/ws/btcusdt@trade"
-    )
-
+    const ws = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@trade")
     wsRef.current = ws
 
     ws.onmessage = (e) => {
@@ -95,9 +77,6 @@ export default function TradingChart() {
       const store = useTradingStore.getState()
       const { orders, leverage } = store
 
-      // =========================
-      // UPDATE PNL + LIQ
-      // =========================
       orders.forEach((o) => {
         if (!o.price) return
 
@@ -117,33 +96,51 @@ export default function TradingChart() {
     }
 
     // =========================
-    // RESIZE FIX
+    // AUTO SCALE ORDER (FIX CORE)
     // =========================
-    const handleResize = () => {
+    const scaleInterval = setInterval(() => {
+      const { orders } = useTradingStore.getState()
+
+      if (!orders.length) return
+
+      const prices = orders.flatMap(o => [
+        o.price,
+        o.tp,
+        o.sl,
+        o.liquidation
+      ]).filter(Boolean)
+
+      if (!prices.length) return
+
+      series.priceScale().applyOptions({
+        autoScale: true,
+      })
+
+    }, 1000)
+
+    // =========================
+    // RESIZE
+    // =========================
+    const resize = () => {
       chart.applyOptions({
         width: containerRef.current.clientWidth,
       })
     }
 
-    window.addEventListener("resize", handleResize)
+    window.addEventListener("resize", resize)
 
-    // =========================
-    // READY FLAG
-    // =========================
-    setChartReady(true)
+    setReady(true)
 
-    // =========================
-    // CLEANUP
-    // =========================
     return () => {
-      window.removeEventListener("resize", handleResize)
       ws.close()
+      clearInterval(scaleInterval)
+      window.removeEventListener("resize", resize)
       chart.remove()
     }
   }, [])
 
   // =========================
-  // CLICK CHART → SET PRICE
+  // CLICK → SET PRICE
   // =========================
   useEffect(() => {
     const chart = chartRef.current
@@ -166,11 +163,9 @@ export default function TradingChart() {
   // =========================
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      {/* CHART */}
       <div ref={containerRef} className="w-full h-full" />
 
-      {/* OVERLAY (NO UI CHANGE) */}
-      {chartReady && (
+      {ready && (
         <ChartOverlay
           chart={chartRef.current}
           series={seriesRef.current}
