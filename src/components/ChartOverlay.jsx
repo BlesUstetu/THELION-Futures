@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react"
 import { useTradingStore } from "../store/tradingStore"
 
-export default function ChartOverlay({ series }) {
+export default function ChartOverlay({ chart, series }) {
   const canvasRef = useRef(null)
   const orders = useTradingStore((s) => s.orders)
 
@@ -24,79 +24,49 @@ export default function ChartOverlay({ series }) {
   }, [])
 
   // =========================
-  // DRAW (FINAL FIX)
+  // DRAW FUNCTION
   // =========================
-  useEffect(() => {
+  const draw = () => {
     const canvas = canvasRef.current
     const ctx = canvas.getContext("2d")
 
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
+    if (!series) return
 
-      orders.forEach((o) => {
-        if (!o.price) return
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-        const entryY = series.priceToCoordinate(o.price)
-        const tpY = series.priceToCoordinate(o.tp)
-        const slY = series.priceToCoordinate(o.sl)
-        const liqY = series.priceToCoordinate(o.liquidation)
+    orders.forEach((o) => {
+      if (!o.price) return
 
-        // 🔥 FIX CORE
-        const y = entryY ?? canvas.height / 2
+      const entryY = series.priceToCoordinate(o.price)
 
-        // ENTRY
-        ctx.strokeStyle = o.side === "BUY" ? "#22c55e" : "#ef4444"
-        ctx.lineWidth = 2
-        ctx.beginPath()
-        ctx.moveTo(0, y)
-        ctx.lineTo(canvas.width, y)
-        ctx.stroke()
+      // 🔥 FORCE fallback kalau null
+      const y = entryY ?? canvas.height / 2
 
-        // TP
-        if (tpY != null) {
-          ctx.strokeStyle = "#22c55e"
-          ctx.setLineDash([5, 5])
-          ctx.beginPath()
-          ctx.moveTo(0, tpY)
-          ctx.lineTo(canvas.width, tpY)
-          ctx.stroke()
-        }
+      ctx.strokeStyle = o.side === "BUY" ? "#22c55e" : "#ef4444"
+      ctx.lineWidth = 2
 
-        // SL
-        if (slY != null) {
-          ctx.strokeStyle = "#ef4444"
-          ctx.beginPath()
-          ctx.moveTo(0, slY)
-          ctx.lineTo(canvas.width, slY)
-          ctx.stroke()
-        }
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(canvas.width, y)
+      ctx.stroke()
+    })
+  }
 
-        ctx.setLineDash([])
+  // =========================
+  // 🔥 CORE FIX: SYNC DENGAN CHART
+  // =========================
+  useEffect(() => {
+    if (!chart || !series) return
 
-        // LIQ
-        if (liqY != null) {
-          ctx.strokeStyle = "#facc15"
-          ctx.beginPath()
-          ctx.moveTo(0, liqY)
-          ctx.lineTo(canvas.width, liqY)
-          ctx.stroke()
-        }
+    // redraw saat chart gerak
+    chart.subscribeCrosshairMove(() => {
+      draw()
+    })
 
-        // RR BOX
-        if (tpY != null && slY != null) {
-          ctx.fillStyle = "rgba(34,197,94,0.15)"
-          ctx.fillRect(0, tpY, canvas.width, y - tpY)
+    // redraw awal
+    setTimeout(draw, 300)
 
-          ctx.fillStyle = "rgba(239,68,68,0.15)"
-          ctx.fillRect(0, y, canvas.width, slY - y)
-        }
-      })
-
-      requestAnimationFrame(draw)
-    }
-
-    draw()
-  }, [orders, series])
+  }, [chart, series, orders])
 
   return (
     <canvas
