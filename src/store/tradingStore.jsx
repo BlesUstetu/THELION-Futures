@@ -1,24 +1,17 @@
 import { create } from "zustand"
 
 export const useTradingStore = create((set) => ({
-  // =========================
-  // FORM
-  // =========================
   price: null,
   amount: 10,
   side: null,
+  leverage: 10,
 
   setPrice: (price) => set({ price }),
   setAmount: (amount) => set({ amount }),
   setSide: (side) => set({ side }),
+  setLeverage: (lvg) => set({ leverage: lvg }),
 
-  // =========================
-  // ORDER STATE
-  // =========================
   orders: [],
-  selectedOrderId: null,
-
-  setSelectedOrder: (id) => set({ selectedOrderId: id }),
 
   addOrder: (order) =>
     set((state) => ({
@@ -48,6 +41,20 @@ export const useTradingStore = create((set) => ({
     set((state) => ({
       orders: state.orders.map((o) =>
         o.id === id ? { ...o, sl } : o
+      ),
+    })),
+
+  updatePNL: (id, pnl) =>
+    set((state) => ({
+      orders: state.orders.map((o) =>
+        o.id === id ? { ...o, pnl } : o
+      ),
+    })),
+
+  updateLiquidation: (id, liq) =>
+    set((state) => ({
+      orders: state.orders.map((o) =>
+        o.id === id ? { ...o, liquidation: liq } : o
       ),
     })),
 }))
