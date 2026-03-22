@@ -1,33 +1,20 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
-// helper
 const generateId = () => Date.now()
 
 export const useTradingStore = create(
   persist(
     (set, get) => ({
-      // ===============================
-      // GLOBAL STATE
-      // ===============================
       pair: "BTCUSDT",
       balance: 1000,
       leverage: 10,
 
-      // ===============================
-      // DATA
-      // ===============================
       orders: [],
       positions: [],
-      tradeHistory: [],
 
       // ===============================
-      // PAIR CONTROL
-      // ===============================
-      setPair: (pair) => set({ pair }),
-
-      // ===============================
-      // CREATE ORDER
+      // ORDER
       // ===============================
       addOrder: (order) =>
         set((state) => ({
@@ -35,56 +22,48 @@ export const useTradingStore = create(
             ...state.orders,
             {
               id: generateId(),
-              type: order.type || "buy", // buy / sell
+              type: order.type,
               price: order.price,
-              tp: order.tp || order.price * 1.02,
-              sl: order.sl || order.price * 0.98,
-              amount: order.amount || 1,
-              status: "open",
-              createdAt: Date.now(),
+              tp: order.tp,
+              sl: order.sl,
+              amount: order.amount,
             },
           ],
         })),
 
-      // ===============================
-      // UPDATE ORDER (DRAG ENGINE)
-      // ===============================
-      updateOrder: (id, newData) =>
+      updateOrder: (id, data) =>
         set((state) => ({
           orders: state.orders.map((o) =>
-            o.id === id ? { ...o, ...newData } : o
+            o.id === id ? { ...o, ...data } : o
           ),
         })),
 
-      // ===============================
-      // DELETE ORDER
-      // ===============================
       removeOrder: (id) =>
         set((state) => ({
           orders: state.orders.filter((o) => o.id !== id),
         })),
 
       // ===============================
-      // EXECUTE ORDER → POSITION
+      // EXECUTE → POSITION
       // ===============================
       executeOrder: (id) =>
         set((state) => {
-          const order = state.orders.find((o) => o.id === id)
-          if (!order) return {}
+          const o = state.orders.find((x) => x.id === id)
+          if (!o) return {}
 
           return {
-            orders: state.orders.filter((o) => o.id !== id),
+            orders: state.orders.filter((x) => x.id !== id),
             positions: [
               ...state.positions,
               {
-                id: generateId(),
-                type: order.type,
-                entry: order.price,
-                tp: order.tp,
-                sl: order.sl,
-                amount: order.amount,
+                ...o,
+                entry: o.price,
                 leverage: state.leverage,
-                openedAt: Date.now(),
+                margin: (o.price * o.amount) / state.leverage,
+                liquidation:
+                  o.type === "buy"
+                    ? o.price * (1 - 1 / state.leverage)
+                    : o.price * (1 + 1 / state.leverage),
               },
             ],
           }
@@ -93,60 +72,58 @@ export const useTradingStore = create(
       // ===============================
       // CLOSE POSITION
       // ===============================
-      closePosition: (id, exitPrice) =>
+      closePosition: (id, price) =>
         set((state) => {
           const pos = state.positions.find((p) => p.id === id)
           if (!pos) return {}
 
           const pnl =
             pos.type === "buy"
-              ? (exitPrice - pos.entry) * pos.amount * pos.leverage
-              : (pos.entry - exitPrice) * pos.amount * pos.leverage
+              ? (price - pos.entry) * pos.amount * pos.leverage
+              : (pos.entry - price) * pos.amount * pos.leverage
 
           return {
             positions: state.positions.filter((p) => p.id !== id),
             balance: state.balance + pnl,
-            tradeHistory: [
-              ...state.tradeHistory,
-              {
-                ...pos,
-                exitPrice,
-                pnl,
-                closedAt: Date.now(),
-              },
-            ],
           }
         }),
 
       // ===============================
-      // AUTO TP / SL CHECK
+      // ENGINE
       // ===============================
+      calculatePNL: (pos, price) => {
+        return pos.type === "buy"
+          ? (price - pos.entry) * pos.amount * pos.leverage
+          : (pos.entry - price) * pos.amount * pos.leverage
+      },
+
       checkTPSL: (price) => {
         const { positions, closePosition } = get()
 
-        positions.forEach((pos) => {
-          if (pos.type === "buy") {
-            if (price >= pos.tp) closePosition(pos.id, pos.tp)
-            if (price <= pos.sl) closePosition(pos.id, pos.sl)
+        positions.forEach((p) => {
+          if (p.type === "buy") {
+            if (price >= p.tp) closePosition(p.id, p.tp)
+            if (price <= p.sl) closePosition(p.id, p.sl)
           } else {
-            if (price <= pos.tp) closePosition(pos.id, pos.tp)
-            if (price >= pos.sl) closePosition(pos.id, pos.sl)
+            if (price <= p.tp) closePosition(p.id, p.tp)
+            if (price >= p.sl) closePosition(p.id, p.sl)
           }
         })
       },
 
-      // ===============================
-      // CLEAR ALL
-      // ===============================
-      resetAll: () =>
-        set({
-          orders: [],
-          positions: [],
-          tradeHistory: [],
-        }),
+      checkLiquidation: (price) => {
+        const { positions, closePosition } = get()
+
+        positions.forEach((p) => {
+          if (p.type === "buy" && price <= p.liquidation) {
+            closePosition(p.id, p.liquidation)
+          }
+          if (p.type === "sell" && price >= p.liquidation) {
+            closePosition(p.id, p.liquidation)
+          }
+        })
+      },
     }),
-    {
-      name: "thelion-trading-store", // localStorage key
-    }
+    { name: "thelion-store" }
   )
 )
