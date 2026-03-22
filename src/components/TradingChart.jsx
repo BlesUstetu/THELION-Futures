@@ -1,26 +1,18 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { createChart } from "lightweight-charts"
 import { useTradingStore } from "../store/tradingStore"
+import ChartOverlay from "./ChartOverlay"
 
 export default function TradingChart() {
   const containerRef = useRef(null)
   const chartRef = useRef(null)
   const seriesRef = useRef(null)
-
-  const orderLinesRef = useRef([])
   const wsRef = useRef(null)
 
-  const dragRef = useRef({
-    active: false,
-    type: null,
-    orderId: null,
-  })
-
-  // ✅ PENTING: subscribe dengan selector
-  const orders = useTradingStore((state) => state.orders)
+  const [chartReady, setChartReady] = useState(false)
 
   // =========================
-  // INIT CHART (ONCE)
+  // INIT CHART (ONLY ONCE)
   // =========================
   useEffect(() => {
     if (!containerRef.current) return
@@ -28,13 +20,24 @@ export default function TradingChart() {
     const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
       height: 400,
+
       layout: {
         background: { color: "#0f172a" },
         textColor: "#ccc",
       },
+
       grid: {
         vertLines: { color: "#1e293b" },
         horzLines: { color: "#1e293b" },
+      },
+
+      rightPriceScale: {
+        autoScale: true,
+      },
+
+      timeScale: {
+        timeVisible: true,
+        secondsVisible: false,
       },
     })
 
@@ -43,14 +46,28 @@ export default function TradingChart() {
     chartRef.current = chart
     seriesRef.current = series
 
-    // dummy data
+    // =========================
+    // SAMPLE DATA (SAFE)
+    // =========================
     series.setData([
-      { time: 1700000000, open: 68000, high: 69000, low: 67000, close: 68500 },
-      { time: 1700000600, open: 68500, high: 68800, low: 68000, close: 68200 },
+      {
+        time: 1700000000,
+        open: 68000,
+        high: 69000,
+        low: 67000,
+        close: 68500,
+      },
+      {
+        time: 1700000600,
+        open: 68500,
+        high: 68800,
+        low: 68000,
+        close: 68200,
+      },
     ])
 
     // =========================
-    // LIVE PRICE
+    // LIVE PRICE LINE
     // =========================
     const liveLine = series.createPriceLine({
       price: 0,
@@ -60,9 +77,13 @@ export default function TradingChart() {
       title: "LIVE",
     })
 
+    // =========================
+    // BINANCE WEBSOCKET
+    // =========================
     const ws = new WebSocket(
       "wss://stream.binance.com:9443/ws/btcusdt@trade"
     )
+
     wsRef.current = ws
 
     ws.onmessage = (e) => {
@@ -74,7 +95,12 @@ export default function TradingChart() {
       const store = useTradingStore.getState()
       const { orders, leverage } = store
 
+      // =========================
+      // UPDATE PNL + LIQ
+      // =========================
       orders.forEach((o) => {
+        if (!o.price) return
+
         const pnl =
           o.side === "BUY"
             ? (price - o.price) * o.amount
@@ -90,93 +116,66 @@ export default function TradingChart() {
       })
     }
 
+    // =========================
+    // RESIZE FIX
+    // =========================
+    const handleResize = () => {
+      chart.applyOptions({
+        width: containerRef.current.clientWidth,
+      })
+    }
+
+    window.addEventListener("resize", handleResize)
+
+    // =========================
+    // READY FLAG
+    // =========================
+    setChartReady(true)
+
+    // =========================
+    // CLEANUP
+    // =========================
     return () => {
+      window.removeEventListener("resize", handleResize)
       ws.close()
       chart.remove()
     }
   }, [])
 
   // =========================
-  // 🔥 CORE FIX: RENDER ORDER LINE
+  // CLICK CHART → SET PRICE
   // =========================
   useEffect(() => {
+    const chart = chartRef.current
     const series = seriesRef.current
 
-    // ✅ guard
-    if (!series) return
+    if (!chart || !series) return
 
-    console.log("🔥 SYNC ORDERS:", orders)
+    chart.subscribeClick((param) => {
+      if (!param.point) return
 
-    // =========================
-    // CLEAR OLD
-    // =========================
-    orderLinesRef.current.forEach((l) => {
-      try {
-        series.removePriceLine(l.entry)
-        series.removePriceLine(l.tp)
-        series.removePriceLine(l.sl)
-        series.removePriceLine(l.liq)
-      } catch {}
+      const price = series.coordinateToPrice(param.point.y)
+      if (!price) return
+
+      useTradingStore.getState().setPrice(price)
     })
+  }, [])
 
-    orderLinesRef.current = []
+  // =========================
+  // RENDER
+  // =========================
+  return (
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      {/* CHART */}
+      <div ref={containerRef} className="w-full h-full" />
 
-    // =========================
-    // DRAW NEW (ANTI BUG)
-    // =========================
-    orders.forEach((o) => {
-      // 🔥 VALIDATION SUPER PENTING
-      if (!o || o.price == null) return
-
-      const price = Number(o.price)
-      const tp = Number(o.tp || 0)
-      const sl = Number(o.sl || 0)
-      const liq = Number(o.liquidation || 0)
-
-      // ENTRY
-      const entryLine = series.createPriceLine({
-        price,
-        color: o.side === "BUY" ? "#22c55e" : "#ef4444",
-        lineWidth: 2,
-        axisLabelVisible: true,
-        title: `ENTRY ${price}`,
-      })
-
-      // TP
-      const tpLine = series.createPriceLine({
-        price: tp,
-        color: "#22c55e",
-        lineStyle: 2,
-        axisLabelVisible: true,
-        title: "TP",
-      })
-
-      // SL
-      const slLine = series.createPriceLine({
-        price: sl,
-        color: "#ef4444",
-        lineStyle: 2,
-        axisLabelVisible: true,
-        title: "SL",
-      })
-
-      // LIQ
-      const liqLine = series.createPriceLine({
-        price: liq,
-        color: "#facc15",
-        lineStyle: 3,
-        axisLabelVisible: true,
-        title: "LIQ",
-      })
-
-      orderLinesRef.current.push({
-        entry: entryLine,
-        tp: tpLine,
-        sl: slLine,
-        liq: liqLine,
-      })
-    })
-  }, [orders])
-
-  return <div ref={containerRef} className="w-full h-full" />
+      {/* OVERLAY (NO UI CHANGE) */}
+      {chartReady && (
+        <ChartOverlay
+          chart={chartRef.current}
+          series={seriesRef.current}
+        />
+      )}
+    </div>
+  )
 }
