@@ -2,7 +2,7 @@ import { create } from "zustand"
 
 export const useTradingStore = create((set) => ({
   // =========================
-  // FORM
+  // FORM STATE
   // =========================
   price: null,
   amount: 10,
