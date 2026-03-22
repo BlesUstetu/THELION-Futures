@@ -51,8 +51,8 @@ export default function TradingChart() {
 
     // 🔥 FIX SCALE DELAY
     setTimeout(() => {
-      chart.timeScale().fitContent()
-    }, 300)
+    chartRef.current?.timeScale().fitContent()
+    }, 100)
 
     // =========================
     // LIVE PRICE
