@@ -15,8 +15,8 @@ export default function OrderPanel() {
 
     addOrder({
       id: Date.now(),
-      price,
-      amount,
+      price: Number(price),     // 🔥 WAJIB
+      amount: Number(amount),   // 🔥 WAJIB
       side,
       tp: side === "BUY" ? price + 500 : price - 500,
       sl: side === "BUY" ? price - 500 : price + 500,
