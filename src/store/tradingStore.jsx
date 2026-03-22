@@ -1,129 +1,187 @@
-import { create } from "zustand"
-import { persist } from "zustand/middleware"
+import { createContext, useState, useEffect } from "react"
 
-const generateId = () => Date.now()
+export const TradingContext = createContext()
 
-export const useTradingStore = create(
-  persist(
-    (set, get) => ({
-      pair: "BTCUSDT",
-      balance: 1000,
-      leverage: 10,
+export function TradingProvider({ children }){
 
-      orders: [],
-      positions: [],
+const [positions,setPositions] = useState([])
+const [openOrders,setOpenOrders] = useState([])
+const [orderHistory,setOrderHistory] = useState([])
+const [tradeHistory,setTradeHistory] = useState([])
 
-      // ===============================
-      // ORDER
-      // ===============================
-      addOrder: (order) =>
-        set((state) => ({
-          orders: [
-            ...state.orders,
-            {
-              id: generateId(),
-              type: order.type,
-              price: order.price,
-              tp: order.tp,
-              sl: order.sl,
-              amount: order.amount,
-            },
-          ],
-        })),
+/* existing */
 
-      updateOrder: (id, data) =>
-        set((state) => ({
-          orders: state.orders.map((o) =>
-            o.id === id ? { ...o, ...data } : o
-          ),
-        })),
+const [orderLines,setOrderLines] = useState([])
 
-      removeOrder: (id) =>
-        set((state) => ({
-          orders: state.orders.filter((o) => o.id !== id),
-        })),
+/* new features */
 
-      // ===============================
-      // EXECUTE → POSITION
-      // ===============================
-      executeOrder: (id) =>
-        set((state) => {
-          const o = state.orders.find((x) => x.id === id)
-          if (!o) return {}
+const [tpLines,setTpLines] = useState([])
+const [slLines,setSlLines] = useState([])
+const [liquidationLines,setLiquidationLines] = useState([])
+const [livePrice,setLivePrice] = useState(null)
 
-          return {
-            orders: state.orders.filter((x) => x.id !== id),
-            positions: [
-              ...state.positions,
-              {
-                ...o,
-                entry: o.price,
-                leverage: state.leverage,
-                margin: (o.price * o.amount) / state.leverage,
-                liquidation:
-                  o.type === "buy"
-                    ? o.price * (1 - 1 / state.leverage)
-                    : o.price * (1 + 1 / state.leverage),
-              },
-            ],
-          }
-        }),
+/* =========================
+PLACE ORDER
+========================= */
 
-      // ===============================
-      // CLOSE POSITION
-      // ===============================
-      closePosition: (id, price) =>
-        set((state) => {
-          const pos = state.positions.find((p) => p.id === id)
-          if (!pos) return {}
+function placeOrder(order){
 
-          const pnl =
-            pos.type === "buy"
-              ? (price - pos.entry) * pos.amount * pos.leverage
-              : (pos.entry - price) * pos.amount * pos.leverage
+const newOrder={
+id:Date.now(),
+pair:order.pair,
+side:order.side,
+price:Number(order.price),
+amount:Number(order.amount),
+leverage:Number(order.leverage || 1),
+status:"OPEN",
+time:new Date().toLocaleTimeString()
+}
 
-          return {
-            positions: state.positions.filter((p) => p.id !== id),
-            balance: state.balance + pnl,
-          }
-        }),
+setOpenOrders(prev=>[...prev,newOrder])
 
-      // ===============================
-      // ENGINE
-      // ===============================
-      calculatePNL: (pos, price) => {
-        return pos.type === "buy"
-          ? (price - pos.entry) * pos.amount * pos.leverage
-          : (pos.entry - price) * pos.amount * pos.leverage
-      },
+setOrderHistory(prev=>[...prev,newOrder])
 
-      checkTPSL: (price) => {
-        const { positions, closePosition } = get()
+/* order line */
 
-        positions.forEach((p) => {
-          if (p.type === "buy") {
-            if (price >= p.tp) closePosition(p.id, p.tp)
-            if (price <= p.sl) closePosition(p.id, p.sl)
-          } else {
-            if (price <= p.tp) closePosition(p.id, p.tp)
-            if (price >= p.sl) closePosition(p.id, p.sl)
-          }
-        })
-      },
+setOrderLines(prev=>[
+...prev,
+{
+price:newOrder.price,
+side:newOrder.side
+}
+])
 
-      checkLiquidation: (price) => {
-        const { positions, closePosition } = get()
+/* TP line */
 
-        positions.forEach((p) => {
-          if (p.type === "buy" && price <= p.liquidation) {
-            closePosition(p.id, p.liquidation)
-          }
-          if (p.type === "sell" && price >= p.liquidation) {
-            closePosition(p.id, p.liquidation)
-          }
-        })
-      },
-    }),
-    { name: "thelion-store" }
-  )
+setTpLines(prev=>[
+...prev,
+{
+price:newOrder.price * 1.02,
+side:"TP"
+}
+])
+
+/* SL line */
+
+setSlLines(prev=>[
+...prev,
+{
+price:newOrder.price * 0.98,
+side:"SL"
+}
+])
+
+/* liquidation example */
+
+setLiquidationLines(prev=>[
+...prev,
+{
+price:newOrder.price * 0.9,
+side:"LIQ"
+}
+])
+
+}
+
+/* =========================
+FILL ORDER
+========================= */
+
+function fillOrder(orderId){
+
+const order=openOrders.find(o=>o.id===orderId)
+
+if(!order) return
+
+const position={
+...order,
+entry:order.price,
+pnl:0
+}
+
+setPositions(prev=>[...prev,position])
+
+setOpenOrders(prev=>prev.filter(o=>o.id!==orderId))
+
+setTradeHistory(prev=>[...prev,order])
+
+}
+
+/* =========================
+CLOSE POSITION
+========================= */
+
+function closePosition(positionId){
+
+const pos=positions.find(p=>p.id===positionId)
+
+if(!pos) return
+
+setPositions(prev=>prev.filter(p=>p.id!==positionId))
+
+const closedTrade={
+...pos,
+closeTime:new Date().toLocaleTimeString(),
+status:"CLOSED"
+}
+
+setTradeHistory(prev=>[...prev,closedTrade])
+
+}
+
+/* =========================
+LIVE PRICE FEED
+========================= */
+
+useEffect(()=>{
+
+const ws = new WebSocket(
+"wss://stream.binance.com:9443/ws/btcusdt@trade"
 )
+
+ws.onmessage=(event)=>{
+
+const data = JSON.parse(event.data)
+
+setLivePrice(Number(data.p))
+
+}
+
+return ()=>ws.close()
+
+},[])
+
+return(
+
+<TradingContext.Provider
+
+value={{
+
+positions,
+openOrders,
+orderHistory,
+tradeHistory,
+
+orderLines,
+tpLines,
+slLines,
+liquidationLines,
+livePrice,
+
+placeOrder,
+fillOrder,
+closePosition,
+
+setOrderLines
+
+}}
+
+>
+
+{children}
+
+</TradingContext.Provider>
+
+)
+
+}
