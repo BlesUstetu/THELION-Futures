@@ -1,79 +1,51 @@
-import { useState, useContext } from "react"
-import { TradingContext } from "../store/tradingStore"
+import { useTradingStore } from "../store/tradingStore"
 
-export default function OrderPanel(){
+export default function OrderPanel() {
+  const {
+    price,
+    amount,
+    setPrice,
+    setAmount,
+    addOrder,
+  } = useTradingStore()
 
-const { placeOrder } = useContext(TradingContext)
+  const handleOrder = (side) => {
+    if (!price) return
 
-const [price,setPrice] = useState("")
-const [amount,setAmount] = useState("")
-const [leverage,setLeverage] = useState(10)
+    addOrder({
+      id: Date.now(),
+      price,
+      amount,
+      side,
+    })
+  }
 
-function submit(side){
+  return (
+    <div className="order-panel">
+      {/* PRICE */}
+      <input
+        value={price || ""}
+        onChange={(e) => setPrice(Number(e.target.value))}
+        placeholder="Price"
+      />
 
-if(!price || !amount) return
+      {/* AMOUNT */}
+      <input
+        value={amount}
+        onChange={(e) => setAmount(Number(e.target.value))}
+        placeholder="Amount"
+      />
 
-placeOrder({
-pair:"BTCUSDT",
-side,
-price,
-amount,
-leverage
-})
+      {/* BUTTON */}
+      <div className="flex">
+        <button onClick={() => handleOrder("BUY")} className="buy">
+          Buy
+        </button>
 
-setPrice("")
-setAmount("")
-
-}
-
-return(
-
-<div className="order">
-
-<div className="order-panel">
-
-<h3>Order</h3>
-
-<input
-placeholder="Price"
-value={price}
-onChange={(e)=>setPrice(e.target.value)}
-/>
-
-<input
-placeholder="Amount"
-value={amount}
-onChange={(e)=>setAmount(e.target.value)}
-/>
-
-<input
-placeholder="Leverage"
-value={leverage}
-onChange={(e)=>setLeverage(e.target.value)}
-/>
-
-<div className="order-buttons">
-
-<button
-className="buy"
-onClick={()=>submit("BUY")}
->
-Buy
-</button>
-
-<button
-className="sell"
-onClick={()=>submit("SELL")}
->
-Sell
-</button>
-
-</div>
-
-</div>
-
-</div>
-
-)
-
+        <button onClick={() => handleOrder("SELL")} className="sell">
+          Sell
+        </button>
+      </div>
+    </div>
+  )
 }
