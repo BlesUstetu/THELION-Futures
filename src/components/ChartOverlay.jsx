@@ -6,11 +6,14 @@ export default function ChartOverlay({ chart, series }) {
   const orders = useTradingStore((s) => s.orders)
 
   // =========================
-  // RESIZE + DPI FIX
+  // DPI + RESIZE FIX
   // =========================
   useEffect(() => {
     const canvas = canvasRef.current
+    if (!canvas) return
+
     const parent = canvas.parentElement
+    if (!parent) return
 
     const resize = () => {
       const dpr = window.devicePixelRatio || 1
@@ -23,6 +26,8 @@ export default function ChartOverlay({ chart, series }) {
 
       const ctx = canvas.getContext("2d")
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+
+      draw()
     }
 
     resize()
@@ -42,10 +47,9 @@ export default function ChartOverlay({ chart, series }) {
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
     orders.forEach((o) => {
-      if (!o.price) return
+      if (!o.price || isNaN(o.price)) return
 
       const y = series.priceToCoordinate(o.price)
-
       if (y === null || y === undefined) return
 
       ctx.strokeStyle = o.side === "BUY" ? "#22c55e" : "#ef4444"
@@ -59,35 +63,36 @@ export default function ChartOverlay({ chart, series }) {
   }
 
   // =========================
-  // SYNC DENGAN CHART (FIX UTAMA)
+  // CHART SYNC
   // =========================
   useEffect(() => {
     if (!chart || !series) return
 
-    // redraw saat:
-    // 1. chart move
     chart.subscribeCrosshairMove(draw)
-
-    // 2. zoom / scroll
     chart.timeScale().subscribeVisibleTimeRangeChange(draw)
-
-    // 3. initial render
-    const interval = setInterval(draw, 500)
 
     return () => {
       chart.unsubscribeCrosshairMove(draw)
       chart.timeScale().unsubscribeVisibleTimeRangeChange(draw)
-      clearInterval(interval)
     }
   }, [chart, series])
 
   // =========================
-  // REDRAW SAAT ORDER UPDATE
+  // ORDER UPDATE
   // =========================
   useEffect(() => {
-    const timeout = setTimeout(draw, 50)
-    return () => clearTimeout(timeout)
+    draw()
   }, [orders])
+
+  // =========================
+  // GLOBAL REDRAW (LIVE PRICE)
+  // =========================
+  useEffect(() => {
+    const handler = () => draw()
+
+    window.addEventListener("chart-redraw", handler)
+    return () => window.removeEventListener("chart-redraw", handler)
+  }, [])
 
   return (
     <canvas
