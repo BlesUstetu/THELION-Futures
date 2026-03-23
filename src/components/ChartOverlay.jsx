@@ -6,15 +6,23 @@ export default function ChartOverlay({ chart, series }) {
   const orders = useTradingStore((s) => s.orders)
 
   // =========================
-  // RESIZE
+  // RESIZE + DPI FIX
   // =========================
   useEffect(() => {
     const canvas = canvasRef.current
     const parent = canvas.parentElement
 
     const resize = () => {
-      canvas.width = parent.clientWidth
-      canvas.height = parent.clientHeight
+      const dpr = window.devicePixelRatio || 1
+
+      canvas.width = parent.clientWidth * dpr
+      canvas.height = parent.clientHeight * dpr
+
+      canvas.style.width = parent.clientWidth + "px"
+      canvas.style.height = parent.clientHeight + "px"
+
+      const ctx = canvas.getContext("2d")
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     }
 
     resize()
@@ -28,19 +36,17 @@ export default function ChartOverlay({ chart, series }) {
   // =========================
   const draw = () => {
     const canvas = canvasRef.current
+    if (!canvas || !series) return
+
     const ctx = canvas.getContext("2d")
-
-    if (!series) return
-
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
     orders.forEach((o) => {
       if (!o.price) return
 
-      const entryY = series.priceToCoordinate(o.price)
+      const y = series.priceToCoordinate(o.price)
 
-      // 🔥 FORCE fallback kalau null
-      const y = entryY ?? canvas.height / 2
+      if (y === null || y === undefined) return
 
       ctx.strokeStyle = o.side === "BUY" ? "#22c55e" : "#ef4444"
       ctx.lineWidth = 2
@@ -53,20 +59,35 @@ export default function ChartOverlay({ chart, series }) {
   }
 
   // =========================
-  // 🔥 CORE FIX: SYNC DENGAN CHART
+  // SYNC DENGAN CHART (FIX UTAMA)
   // =========================
   useEffect(() => {
     if (!chart || !series) return
 
-    // redraw saat chart gerak
-    chart.subscribeCrosshairMove(() => {
-      draw()
-    })
+    // redraw saat:
+    // 1. chart move
+    chart.subscribeCrosshairMove(draw)
 
-    // redraw awal
-    setTimeout(draw, 300)
+    // 2. zoom / scroll
+    chart.timeScale().subscribeVisibleTimeRangeChange(draw)
 
-  }, [chart, series, orders])
+    // 3. initial render
+    const interval = setInterval(draw, 500)
+
+    return () => {
+      chart.unsubscribeCrosshairMove(draw)
+      chart.timeScale().unsubscribeVisibleTimeRangeChange(draw)
+      clearInterval(interval)
+    }
+  }, [chart, series])
+
+  // =========================
+  // REDRAW SAAT ORDER UPDATE
+  // =========================
+  useEffect(() => {
+    const timeout = setTimeout(draw, 50)
+    return () => clearTimeout(timeout)
+  }, [orders])
 
   return (
     <canvas
