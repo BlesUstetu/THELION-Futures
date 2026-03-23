@@ -20,17 +20,14 @@ export default function TradingChart() {
     const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
       height: 400,
-
       layout: {
         background: { color: "#0f172a" },
         textColor: "#ccc",
       },
-
       grid: {
         vertLines: { color: "#1e293b" },
         horzLines: { color: "#1e293b" },
       },
-
       rightPriceScale: {
         autoScale: true,
       },
@@ -42,20 +39,21 @@ export default function TradingChart() {
     seriesRef.current = series
 
     // =========================
-    // DATA
+    // INITIAL DATA
     // =========================
     series.setData([
       { time: 1700000000, open: 68000, high: 69000, low: 67000, close: 68500 },
       { time: 1700000600, open: 68500, high: 68800, low: 68000, close: 68200 },
     ])
 
-    // 🔥 FIX SCALE DELAY
-    setTimeout(() => {
-    chartRef.current?.timeScale().fitContent()
-    }, 100)
+    // ✅ FIX: tunggu chart benar-benar ready
+    requestAnimationFrame(() => {
+      chart.timeScale().fitContent()
+      setTimeout(() => setReady(true), 100)
+    })
 
     // =========================
-    // LIVE PRICE
+    // LIVE PRICE (WEBSOCKET)
     // =========================
     const liveLine = series.createPriceLine({
       price: 0,
@@ -93,30 +91,20 @@ export default function TradingChart() {
         store.updatePNL(o.id, pnl)
         store.updateLiquidation(o.id, liq)
       })
+
+      // 🔥 trigger overlay redraw
+      window.dispatchEvent(new Event("chart-redraw"))
     }
 
     // =========================
-    // AUTO SCALE ORDER (FIX CORE)
+    // AUTO SCALE FIX
     // =========================
     const scaleInterval = setInterval(() => {
       const { orders } = useTradingStore.getState()
-
       if (!orders.length) return
 
-      const prices = orders.flatMap(o => [
-        o.price,
-        o.tp,
-        o.sl,
-        o.liquidation
-      ]).filter(Boolean)
-
-      if (!prices.length) return
-
-      series.priceScale().applyOptions({
-        autoScale: true,
-      })
-
-    }, 1000)
+      chart.timeScale().fitContent()
+    }, 1500)
 
     // =========================
     // RESIZE
@@ -128,8 +116,6 @@ export default function TradingChart() {
     }
 
     window.addEventListener("resize", resize)
-
-    setReady(true)
 
     return () => {
       ws.close()
